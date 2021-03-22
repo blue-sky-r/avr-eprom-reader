@@ -37,31 +37,31 @@
 // TODO: power-up/down sequence
 // TODO: xmodem protocol
 
-#define RX_BUFF_SIZE    80
+const uint8_t RX_BUFF_SIZE = 80;
 
 // HW
-#define IC4040_RST PB0
+const uint8_t IC4040_RST =  8;
 // falling edge H->L
-#define IC4040_CLK PB4
+const uint8_t IC4040_CLK = 12;
 // RD/OE pin
-#define MEM_RD_OE  PB2
+const uint8_t MEM_RD_OE  = 13;
 // data bus
 const int MEM_DATA_BUS[8] = {
-    PD7,    // D7
-    PD6,    // D6
-    PD5,    // D5
-    PD4,    // D4
-    PD3,    // D3
-    PD2,    // D2
-    PC1,    // D1
-    PC0     // D0
+     7,    // D7
+     6,    // D6
+     5,    // D5
+     4,    // D4
+     3,    // D3
+     2,    // D2
+    15,    // D1
+    14     // D0
 };
 // voltage measurements
 // adc pins - A0 .. A7
 // pin
-#define V5P     A5	//  5V Positive
-#define V5N     A6	//  5V Negative
-#define V12     A7	// 12V positive
+const uint8_t V5P  = 19;	//  5V Positive
+const uint8_t V5N  = 20;    //  5V Negative
+const uint8_t V12  = 21;    // 12V positive
 // resitor voltage divider
 #define Rdivider(r1, r2) (r1 + r2) / float(r2)
 const float V5Pdivider = Rdivider(47, 10);
@@ -81,13 +81,11 @@ const char version[] = "2021.03.15";
 // the setup function runs once when you press reset or power the board
 void setup() {
     // initialize digital pin LED_BUILTIN as an output.
-    pinMode(LED_BUILTIN, OUTPUT);
+    //pinMode(LED_BUILTIN, OUTPUT);
     // pins
-    pinMode(IC4040_CLK, OUTPUT); //address_inc();
-    pinMode(IC4040_RST, OUTPUT); //address_0();
-    pinMode(MEM_RD_OE,  OUTPUT); 
-    //
-    digitalWrite(MEM_RD_OE, HIGH);
+    pinMode(IC4040_CLK, OUTPUT); address_inc();
+    pinMode(IC4040_RST, OUTPUT); address_0();
+    pinMode(MEM_RD_OE,  OUTPUT); digitalWrite(MEM_RD_OE, HIGH);
     // analog
     analogReference(INTERNAL);  // 1.1-1.2 V
     //analogReference(DEFAULT);   // Vcc=5V
@@ -144,18 +142,14 @@ void cmd_help() {
 
 void address_0() {
     digitalWrite(IC4040_RST, HIGH);
-    digitalWrite(LED_BUILTIN, HIGH);
     cntAddress = 0;
     digitalWrite(IC4040_RST, LOW);
-    digitalWrite(LED_BUILTIN, LOW);
 }
 
 void address_inc() {
     digitalWrite(IC4040_CLK, HIGH);
-    digitalWrite(LED_BUILTIN, HIGH);
     cntAddress++;
     digitalWrite(IC4040_CLK, LOW);
-    digitalWrite(LED_BUILTIN, LOW);
 }
 
 void tx_voltage(int pin, float divider) {
@@ -361,7 +355,6 @@ void loop() {
     if (Serial.available() > 0) {
         command = rx_line_until_eoln();
         //Serial.print("<" + command + ">");
-        digitalWrite(LED_BUILTIN, HIGH); // turn the LED on
 
         // dispatch commands
         // ?
@@ -433,5 +426,4 @@ void loop() {
         prompt();
     }
     
-    digitalWrite(LED_BUILTIN, LOW); // turn the LED off
 }
