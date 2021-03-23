@@ -338,6 +338,8 @@ int8_t do_xmodem(uint16_t size) {
         rd_xmdm_block(block_num, block_size, buffer, size-sent);
         // send and wait ACK
         for(uint8_t attempt=0; attempt<retry; attempt++) {
+            // for debug
+
             Serial.write(buffer, block_size+4);
             // wait for ACK
             received = rx_char_timeout(1000);
@@ -420,6 +422,20 @@ void tx_echo_char(uint8_t chr) {
         default:
             break;
     };
+}
+
+void tx_block(uint16_t size, uint8_t *buffer) {
+    for(uint16_t idx=0; idx<size; idx++)
+        tx_echo_char(*buffer++);
+    /*
+    // if debug mode
+    if (ECHO_MODE == echoHEX || ECHO_MODE == echoDEC) {
+        for(uint16_t idx=0; idx<size; idx++)
+            tx_echo_char(*buffer++);
+    } else {
+        Serial.write(buffer, size);
+    }
+    */
 }
 
 // block until line from pc is received
