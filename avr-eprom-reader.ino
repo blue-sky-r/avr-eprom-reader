@@ -44,7 +44,7 @@
 
 const char version[] = "2021.03.23";
 
-const uint8_t RX_BUFF_SIZE = 80;
+const uint8_t RX_BUFF_SIZE = 10;
 
 // HW
 const uint8_t IC4040_RST =  8;
@@ -273,11 +273,9 @@ void do_dump(uint16_t size) {
 
 const struct {
     uint8_t SOH = 0x01;
-    uint8_t STX = 0x02;
     uint8_t EOT = 0x04;
     uint8_t ACK = 0x06;
     uint8_t NAK = 0x15;
-    uint8_t CAN = 0x18;
     uint8_t PAD = 0x1a;
 } control;
 
@@ -363,32 +361,33 @@ int8_t do_xmodem(uint16_t size) {
     return 0;
 }
 
-uint16_t parse_hexa(String ascii) {
+uint16_t parse_hexa(char *ascii) {
     uint16_t num  =  0;
     uint8_t  base = 10;
 
-    for(char x : ascii) {
+    while(*ascii) {
         // trim leading spaces
-        if (x == ' ') 
+        if (*ascii == ' ') 
             continue;
         // hexa prefix ?
-        if (x == '$') {
+        if (*ascii == '$') {
             base = 16;
             continue;
         }
         // size suffix
-        if (x == 'k') {
+        if (*ascii == 'k') {
             num <<= 10;
-            break;    Serial.println("dump size ... dump block size (16 bytes per line) where:");
-
+            break;
         }
         // break on non-hexa char
-        if (x < '0' || x > 'f' || (x > '9' && x < 'a'))
+        if (*ascii < '0' || *ascii > 'f' || (*ascii > '9' && *ascii < 'a'))
             break;
         // current digit value 0..15
-        uint8_t digit = x >= 'a' ? x - 'a' + 10 : x - '0';
+        uint8_t digit = *ascii >= 'a' ? *ascii - 'a' + 10 : *ascii - '0';
         // rotate left and add
         num = base*num + digit;
+        // next char in string
+        ascii++;
     }
     return num;
 }
@@ -403,7 +402,7 @@ void rx_discard_whitespaces() {
     }
 }
 
-void tx_echo_char(uint8_t chr) {
+void tx_echo_char(int chr) {
     //
     switch (ECHO_MODE) {
         case echoON:
@@ -421,7 +420,7 @@ void tx_echo_char(uint8_t chr) {
             break;
         default:
             break;
-    };
+    }
 }
 
 void tx_block(uint16_t size, uint8_t *buffer) {
@@ -439,11 +438,10 @@ void tx_block(uint16_t size, uint8_t *buffer) {
 }
 
 // block until line from pc is received
-String rx_line_until_eoln() {
-    static String rx_string;
+char *rx_line_until_eoln() {
+    static char rx_string[RX_BUFF_SIZE];
+    uint8_t idx = 0;
     //
-    rx_string = "";
-    rx_string.reserve(RX_BUFF_SIZE);
     // discard leading white chars
     rx_discard_whitespaces();
     //
@@ -454,61 +452,64 @@ String rx_line_until_eoln() {
             tx_echo_char(chr);
             // line completed when '\n' or 'r' received
             if (chr == '\n' || chr == '\r') {
+                rx_string[idx] = '\0';
                 rx_discard_whitespaces();
                 break;
             }
             // received char to buffer
-            rx_string += (char) chr;
+            rx_string[idx] = (char) chr;
+            idx++;
         }
-    };
-    rx_string.trim();
-    rx_string.toLowerCase();
+    }
+    // received string
     return rx_string;
 }
 
 // the loop function runs over and over again forever
 void loop() {
     // command from PC
-    String command = "";
+    //String command = "";
+    //command.reserve(RX_BUFF_SIZE);
     // receive 
     if (Serial.available() > 0) {
-        command = rx_line_until_eoln();
+        char *cmd = rx_line_until_eoln();
+        String command;
         // dispatch commands
         // ?
-        if (command.startsWith("?"))
+        if (strcmp("?", cmd) == 0)
             cmd_help();
         // version
-        else if (command.startsWith("ver"))
+        else if (strcmp("ver", cmd) == 0)
             cmd_ver();      
         // reset pulse
-        else if (command.startsWith("rst"))
+        else if (strcmp("rst", cmd) == 0)
             address_0();      
         // clk pulse
-        else if (command.startsWith("inc"))
+        else if (strcmp("inc", cmd) == 0)
             address_inc();      
         // voltages
-        else if (command.startsWith("v?"))
+        else if (strcmp("v?", cmd) == 0)
             voltages();      
         // echo mode
-        else if (command.startsWith("echo")) {
-            String mode = command.substring(5);
-            if (mode.startsWith("on"))
+        else if (strcmp("echo", cmd) == 0) {
+            char *mode = &cmd[5];
+            if (strcmp("on", mode) == 0)
                 ECHO_MODE = echoON;
-            else if (mode.startsWith("off"))
+            else if (strcmp("off", mode) == 0)
                 ECHO_MODE = echoOFF;
-            else if (mode.startsWith("dec"))
+            else if (strcmp("dec", mode) == 0)
                 ECHO_MODE = echoDEC;
-            else if (mode.startsWith("hex"))
+            else if (strcmp("hex", mode) == 0)
                 ECHO_MODE = echoHEX;
         // set address counter
-        } else if (command.startsWith("addr")) {
-            uint16_t addr = parse_hexa(command.substring(5));
+        } else if (strcmp("addr", cmd) == 0) {
+            uint16_t addr = parse_hexa(&cmd[5]);
             address_0();
             for(uint16_t a = 0; a < addr; a++)
                 address_inc();
         // set baud rate
-        } else if (command.startsWith("bd")) {
-            uint16_t speed = parse_hexa(command.substring(3));
+        } else if (strcmp("bd", cmd) == 0) {
+            uint16_t speed = parse_hexa(&cmd[3]);
             Serial.println();
             Serial.print("= setting communication speed to ");
             Serial.print(speed);
@@ -524,28 +525,29 @@ void loop() {
                     if ((char) chr == '\n' || (char) chr == '\r')
                         break;
                 }
-            };
+            }
         // read
-        } else if (command.startsWith("rd")) {
+        } else if (strcmp("rd", cmd) == 0) {
             do_rd();
             // optional increment
-            if (command.endsWith("++"))
+            if (strcmp("++", &cmd[2]) == 0)
                 address_inc();
         // dump
-        } else if (command.startsWith("dump")) {
-            uint16_t size = parse_hexa(command.substring(5));
+        } else if (strcmp("dump", cmd) == 0) {
+            uint16_t size = parse_hexa(&cmd[5]);
             // default size is 16
             if (size == 0) size = 16;
             do_dump(size);
         // xmodem
-        } else if (command.startsWith("xmdm")) {
-            uint16_t size = parse_hexa(command.substring(5));
+        } else if (strcmp("xmdm", cmd) == 0) {
+            uint16_t size = parse_hexa(&cmd[5]);
             Serial.println("activate xmodem to save a file ...");
             // wait 1 sec
             delay(1000);
             do_xmodem(size);
-        } else
+        } else {
             unknown_command();
+        }
 
         prompt();
     }
