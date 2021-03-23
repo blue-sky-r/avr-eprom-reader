@@ -44,7 +44,7 @@
 
 const char version[] = "2021.03.23";
 
-const uint8_t RX_BUFF_SIZE = 10;
+const uint8_t RX_BUFF_SIZE = 16;
 
 // HW
 const uint8_t IC4040_RST =  8;
@@ -365,18 +365,22 @@ uint16_t parse_hexa(char *ascii) {
     uint16_t num  =  0;
     uint8_t  base = 10;
 
-    while(*ascii) {
+    while (*ascii) {
         // trim leading spaces
-        if (*ascii == ' ') 
+        if (*ascii == ' ') {
+            ascii++;
             continue;
+        }
         // hexa prefix ?
         if (*ascii == '$') {
             base = 16;
+            ascii++;
             continue;
         }
         // size suffix
         if (*ascii == 'k') {
             num <<= 10;
+            ascii++;
             break;
         }
         // break on non-hexa char
@@ -465,6 +469,13 @@ char *rx_line_until_eoln() {
     return rx_string;
 }
 
+bool strstarts(const char *prefix, const char *str)
+{
+    uint8_t lenpre = strlen(prefix),
+            lenstr = strlen(str);
+    return lenstr < lenpre ? false : memcmp(prefix, str, lenpre) == 0;
+}
+
 // the loop function runs over and over again forever
 void loop() {
     // command from PC
@@ -473,7 +484,6 @@ void loop() {
     // receive 
     if (Serial.available() > 0) {
         char *cmd = rx_line_until_eoln();
-        String command;
         // dispatch commands
         // ?
         if (strcmp("?", cmd) == 0)
@@ -491,7 +501,7 @@ void loop() {
         else if (strcmp("v?", cmd) == 0)
             voltages();      
         // echo mode
-        else if (strcmp("echo", cmd) == 0) {
+        else if (strstarts("echo", cmd)) {
             char *mode = &cmd[5];
             if (strcmp("on", mode) == 0)
                 ECHO_MODE = echoON;
@@ -502,13 +512,13 @@ void loop() {
             else if (strcmp("hex", mode) == 0)
                 ECHO_MODE = echoHEX;
         // set address counter
-        } else if (strcmp("addr", cmd) == 0) {
+        } else if (strstarts("addr", cmd)) {
             uint16_t addr = parse_hexa(&cmd[5]);
             address_0();
             for(uint16_t a = 0; a < addr; a++)
                 address_inc();
         // set baud rate
-        } else if (strcmp("bd", cmd) == 0) {
+        } else if (strstarts("bd", cmd)) {
             uint16_t speed = parse_hexa(&cmd[3]);
             Serial.println();
             Serial.print("= setting communication speed to ");
@@ -527,27 +537,26 @@ void loop() {
                 }
             }
         // read
-        } else if (strcmp("rd", cmd) == 0) {
+        } else if (strstarts("rd", cmd)) {
             do_rd();
             // optional increment
             if (strcmp("++", &cmd[2]) == 0)
                 address_inc();
         // dump
-        } else if (strcmp("dump", cmd) == 0) {
+        } else if (strstarts("dump", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
             // default size is 16
             if (size == 0) size = 16;
             do_dump(size);
         // xmodem
-        } else if (strcmp("xmdm", cmd) == 0) {
+        } else if (strstarts("xmdm", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
             Serial.println("activate xmodem to save a file ...");
             // wait 1 sec
             delay(1000);
             do_xmodem(size);
-        } else {
+        } else
             unknown_command();
-        }
 
         prompt();
     }
