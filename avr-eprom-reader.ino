@@ -66,7 +66,7 @@ const char usage_16[] PROGMEM =  "dump      ... dump block 16 bytes \n";
 const char usage_17[] PROGMEM =  "dump size ... dump block size (16 bytes per line) \n";
 const char usage_18[] PROGMEM =  "xmdm size ... read block size and send via xmodem protocol to PC \n";
 const char usage_19[] PROGMEM =  "isff size ... check if entire block size is 0xFF (EPROM empty and ready for prog) \n";
-const char usage_20[] PROGMEM =  "ff@  size ... loop checking block size and display percentage of 0xFF cells \n";
+const char usage_20[] PROGMEM =  "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
 const char usage_21[] PROGMEM =  "\n";
 const char usage_22[] PROGMEM =  "numbers (size, address, speed) can be entered as: \n";
 const char usage_23[] PROGMEM =  "    12345 ... decimal number     (max 65535) \n";
@@ -129,15 +129,17 @@ const struct {
     uint8_t PAD = 0x1a;
 } control;
 
+// === PROGMEEM / FLASHMEM STRINGS ===
+
 const char fw[] PROGMEM         = "= firmware revision: ";
 const char prompt_str[] PROGMEM = "reader > ";
 const char pardon[] PROGMEM     = "Pardon ?\n";
 
 const char xmodem_start[] PROGMEM = "activate xmodem to save a file ";
-const char xmodem_0[] PROGMEM = "OK";
-const char xmodem_1[] PROGMEM = "SYNC NACK not received"; 
-const char xmodem_2[] PROGMEM = "DATA BLOCK ACK not received"; 
-const char xmodem_3[] PROGMEM = "EOT ACK not received"; 
+const char xmodem_0[] PROGMEM = " OK";
+const char xmodem_1[] PROGMEM = " ERR - SYNC NACK not received"; 
+const char xmodem_2[] PROGMEM = " ERR - DATA BLOCK ACK not received"; 
+const char xmodem_3[] PROGMEM = " ERR - EOT ACK not received"; 
 
 const char *const xmodem[] PROGMEM = {
     xmodem_0, xmodem_1, xmodem_2, xmodem_3
@@ -159,17 +161,25 @@ const char volt_5P[]  PROGMEM = "voltage +5V Vcc=+";
 const char volt_adc[] PROGMEM = "V adc:$";
 const char volt_div[] PROGMEM = " divider=";
 
-const char isff_anykey[] PROGMEM = "= loop checking = each . represents 1kB = ANY received char will abort the loop =\n";
-const char isff_0[]  PROGMEM = "= block addr: ";
-const char isff_1[]  PROGMEM = " = erased: ";
-const char isff_ff[] PROGMEM = "% = $ff/empty: $";
-const char isff_xx[] PROGMEM = " = !$ff/programmed: $";
+const char isempty_anykey[] PROGMEM = "= loop checking = each . represents 1kB = ANY received char will abort the loop =\n";
+const char isempty_addr[]  PROGMEM = "= block addr: ";
+const char isempty_empty[] PROGMEM = " = empty: ";
+const char isempty_val[]   PROGMEM = "% = bytes[$";
+const char isempty_nval[]  PROGMEM = "/!$";
+const char isempty_cnt_e[] PROGMEM = "]: $";
+const char isempty_cntne[] PROGMEM = " / $";
+const char isempty_bit1[]  PROGMEM = " = bits[1/0]: $";
+const char isempty_bit0[]  PROGMEM = " / $";
+
+// === GLOBAl VARIABLES ===
 
 uint16_t cntAddress  = 0;
 
 // global rx/tx buffers
 char RX_BUFFER[RX_BUFF_SIZE] = "";
 char TX_BUFFER[TX_BUFF_SIZE] = "";
+
+// === setup ===
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -277,7 +287,21 @@ void tx_hexa_word(uint16_t data) {
     // high byte
     tx_hexa_byte(data >> 8);
     // low  byte
-    tx_hexa_byte(data);
+    tx_hexa_byte(data & 0xFF);
+}
+
+void tx_hexa_3bytes(uint32_t data) {
+    // high byte
+    tx_hexa_byte(data >> 16);
+    // low  byte
+    tx_hexa_word(data & 0xFFFF);
+}
+
+void tx_hexa_dword(uint32_t data) {
+    // high word
+    tx_hexa_word(data >> 16);
+    // low  byte
+    tx_hexa_word(data & 0xFFFF);
 }
 
 // combine all bits to data byte (hw dependent)
@@ -437,43 +461,62 @@ uint8_t do_xmodem(uint16_t size) {
     return 0;
 }
 
-uint16_t do_cnt_notff(uint16_t size) {
-    uint16_t  cntFF = 0, cntXX = 0;
+bool chip_is_empty(uint16_t size, uint8_t mask) {
+    uint16_t cnt_empty = 0, cnt_nonempty = 0;
+    uint32_t cnt_1 = 0, cnt_0 = 0; 
     //
     // range
-    tx_pgm_txt(isff_0);
+    tx_pgm_txt(isempty_addr);
     tx_address();
     // loop
-    for(uint16_t idx=0; idx<size; idx++) {
+    for(uint16_t idx=0; idx<size; idx++) {        
         // progress each 1k
-        if ((idx & 0x3ff) == 0)
+        if (! (idx & 0x3ff))
             Serial.write('.');
         // data
         uint8_t data = read_data();
-        // sums
-        if (data == 0xff)
-            cntFF++;
+        // coun match/mismatch
+        if (data == mask)
+            cnt_empty++;
         else
-            cntXX++;
+            cnt_nonempty++;
+        // count 1's
+        for(uint8_t bit=0; bit<8; bit++) {
+            if ((data & 0x01) == 0x01)
+                cnt_1++;
+            else
+                cnt_0++;
+            data >>= 1;
+        }
         // next address
         address_inc();
     }
+    // calc aux values
+    float percent = 100 * cnt_empty / size;
+    //cnt_nonempty = size - cnt_empty;
+    //cnt_0 = (size << 8) - cnt_1;
     // result
     tx_address();
-    tx_pgm_txt(isff_1);
-    float percent = 100 * cntFF / size;
+    tx_pgm_txt(isempty_empty);
     Serial.print(percent);
-    tx_pgm_txt(isff_ff); tx_hexa_word(cntFF);
-    tx_pgm_txt(isff_xx); tx_hexa_word(cntXX);
+    tx_pgm_txt(isempty_val);  tx_hexa_byte(mask);
+    tx_pgm_txt(isempty_nval); tx_hexa_byte(mask);
+    tx_pgm_txt(isempty_cnt_e); tx_hexa_word(cnt_empty);
+    tx_pgm_txt(isempty_cntne); tx_hexa_word(cnt_nonempty);
+    tx_pgm_txt(isempty_bit1);  tx_hexa_3bytes(cnt_1);
+    tx_pgm_txt(isempty_bit0);  tx_hexa_3bytes(cnt_0);
     tx_pgm_txt(eq_eoln);    
+    //Serial.print("size=$"); Serial.println(size, HEX);
+    //Serial.print("cnt_empty=$"); Serial.println(cnt_empty, HEX);
+    //Serial.print("cnt_nonempty=$"); Serial.println(cnt_nonempty, HEX);
     // 
-    return cntXX;
+    return cnt_empty == size;
 }
 
 uint16_t parse_hexa(char *ascii) {
     uint16_t num  =  0;
     uint8_t  base = 10;
-    uint8_t  mult = 1;
+    uint8_t  shl  =  0; // shift left
 
     while (*ascii) {
         // trim leading spaces
@@ -489,13 +532,13 @@ uint16_t parse_hexa(char *ascii) {
         }
         // memory prefix ?
         if (*ascii == 'm') {
-            mult = 128;
+            shl = 7;
             ascii++;
             continue;
         }
         // size suffix
         if (*ascii == 'k') {
-            num <<= 10;
+            shl = 10;
             ascii++;
             break;
         }
@@ -509,7 +552,7 @@ uint16_t parse_hexa(char *ascii) {
         // next char in string
         ascii++;
     }
-    num *= mult;
+    if (shl) num <<= shl;
     return num;
 }
 
@@ -671,29 +714,25 @@ void loop() {
             Serial.flush();
             delay(1000);
             uint8_t code = do_xmodem(size);
-            Serial.write(' ');
             // ttx back status message from error code
             tx_pgm_arr(&(xmodem[code & 0x3]));
         // is 0xFF
         } else if (strstarts("isff", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
-            do_cnt_notff(size);
+            chip_is_empty(size, 0xff);
         // loop checking 0xff percentage
-        } else if (strstarts("ff@", cmd)) {
+        } else if (strstarts("@ff", cmd)) {
             uint16_t size = parse_hexa(&cmd[4]);
             uint16_t start_addr = cntAddress;
-            uint16_t bad;
             //
-            tx_pgm_txt(isff_anykey);
-            do {
-                bad = do_cnt_notff(size);
+            tx_pgm_txt(isempty_anykey);
+            // any char will stop loop
+            while (Serial.available() == 0)  {
+                chip_is_empty(size, 0xff);
                 address_set(start_addr);
-                // any char will break
-                if (Serial.available() > 0)
-                    break;
                 // small delay
                 delay(1000);
-            } while (bad > 0);            
+            };            
         // unknown command
         } else
             unknown_command();
