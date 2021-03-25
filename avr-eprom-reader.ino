@@ -66,7 +66,7 @@ const char usage_16[] PROGMEM =  "dump      ... dump block 16 bytes \n";
 const char usage_17[] PROGMEM =  "dump size ... dump block size (16 bytes per line) \n";
 const char usage_18[] PROGMEM =  "xmdm size ... read block size and send via xmodem protocol to PC \n";
 const char usage_19[] PROGMEM =  "isff size ... check if entire block size is 0xFF (EPROM empty and ready for prog) \n";
-const char usage_20[] PROGMEM =  "ff%  size ... loop checking block size and display percentage of 0xFF cells \n";
+const char usage_20[] PROGMEM =  "ff@  size ... loop checking block size and display percentage of 0xFF cells \n";
 const char usage_21[] PROGMEM =  "\n";
 const char usage_22[] PROGMEM =  "numbers (size, address, speed) can be entered as: \n";
 const char usage_23[] PROGMEM =  "    12345 ... decimal number     (max 65535) \n";
@@ -159,9 +159,10 @@ const char volt_5P[]  PROGMEM = "voltage +5V Vcc=+";
 const char volt_adc[] PROGMEM = "V adc:$";
 const char volt_div[] PROGMEM = " divider=";
 
-const char isff_0[]  PROGMEM = "= block check";
-const char isff_ff[] PROGMEM = " = $ff (empty): $";
-const char isff_xx[] PROGMEM = " = !$ff (programmed): $";
+const char isff_0[]  PROGMEM = "= block address: ";
+const char isff_1[]  PROGMEM = " = erased: ";
+const char isff_ff[] PROGMEM = "% = $ff/empty: $";
+const char isff_xx[] PROGMEM = " = !$ff/programmed: $";
 
 uint16_t cntAddress  = 0;
 
@@ -231,6 +232,12 @@ void address_inc() {
     digitalWrite(IC4040_CLK, LOW);
 }
 
+void address_set(uint16_t addr) {
+    address_0();
+    for(uint16_t a = 0; a < addr; a++)
+        address_inc();
+}
+
 void tx_voltage(int pin, float divider) {
     uint16_t adc = analogRead(pin);
     float voltage = adc * Vref * divider / 1024;
@@ -290,11 +297,11 @@ uint8_t read_data() {
 
 void tx_address() {
     // address
-    Serial.println();
+    //Serial.println();
     Serial.print("$");
     tx_hexa_word(cntAddress);
     // separator
-    Serial.print(":\t");
+    //Serial.print(":\t");
 }
 
 uint8_t do_rd() {
@@ -317,7 +324,10 @@ void do_dump(uint16_t size) {
         // arrdess each 16 bytes
         if (idx % 16 == 0) {
             //if (idx > 0) Serial.println();
+            Serial.println();
             tx_address();
+            // separator
+            Serial.print(":\t");
         // add separator each 8 bytes
         } else if (idx % 8 == 0)
             Serial.print("| ");
@@ -426,8 +436,13 @@ uint8_t do_xmodem(uint16_t size) {
     return 0;
 }
 
-void do_isff(uint16_t size) {
+uint16_t do_cnt_notff(uint16_t size) {
     uint16_t  cntFF = 0, cntXX = 0;
+    //
+    // range
+    tx_pgm_txt(isff_0);
+    tx_address();
+    Serial.write("...");
     // loop
     for(uint16_t idx=0; idx<size; idx++) {
         // data
@@ -441,36 +456,15 @@ void do_isff(uint16_t size) {
         address_inc();
     }
     // result
-    tx_pgm_txt(isff_0);
+    tx_address();
+    tx_pgm_txt(isff_1);
+    float percent = 100 * cntFF / size;
+    Serial.print(percent);
     tx_pgm_txt(isff_ff); tx_hexa_word(cntFF);
     tx_pgm_txt(isff_xx); tx_hexa_word(cntXX);
     tx_pgm_txt(eq_eoln);    
-}
-
-uint16_t do_count_bad(uint16_t size) {
-    uint16_t  cntFF = 0, cntXX = 0;
-    //
-    Serial.write('=');
-    // loop
-    for(uint16_t idx=0; idx<size; idx++) {
-        // data
-        uint8_t data = read_data();
-        // sums
-        if (data == 0xff)
-            cntFF++;
-        else
-            cntXX++;
-        // next address
-        address_inc();
-    }
-    // result
-    float percent = 100 * cntFF / size;
-    Serial.print(percent);
-    Serial.write("%("); tx_hexa_word(cntFF);
-    Serial.write("/");  tx_hexa_word(cntXX);
-    Serial.write(")");
-    //
-    return cntXX;    
+    // 
+    return cntXX;
 }
 
 uint16_t parse_hexa(char *ascii) {
@@ -634,9 +628,7 @@ void loop() {
         // set address counter
         } else if (strstarts("addr", cmd)) {
             uint16_t addr = parse_hexa(&cmd[5]);
-            address_0();
-            for(uint16_t a = 0; a < addr; a++)
-                address_inc();
+            address_set(addr);
         // set baud rate
         } else if (strstarts("bd", cmd)) {
             uint16_t speed = parse_hexa(&cmd[3]);
@@ -682,22 +674,21 @@ void loop() {
         // is 0xFF
         } else if (strstarts("isff", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
-            do_isff(size);
+            do_cnt_notff(size);
         // loop checking 0xff percentage
-        } else if (strstarts("ff%", cmd)) {
+        } else if (strstarts("ff@", cmd)) {
             uint16_t size = parse_hexa(&cmd[4]);
-            uint16_t save_address = cntAddress;
+            uint16_t start_addr = cntAddress;
             uint16_t bad;
-            uint8_t pass;
             do {
-                bad = do_count_bad(size);
+                bad = do_cnt_notff(size);
+                address_set(start_addr);
                 address_0();
-                for(uint16_t a = 0; a < save_address; a++)
-                    address_inc();
-                // new-line each 8 passes
-                pass++;
-                if (pass % 8)
-                    Serial.println();
+                // small delay
+                delay(500);
+                // any char will break
+                if (Serial.available() > 0)
+                    break;
             } while (bad > 0);            
         // unknown command
         } else
