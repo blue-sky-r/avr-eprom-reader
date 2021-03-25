@@ -426,7 +426,7 @@ uint8_t do_xmodem(uint16_t size) {
     return 0;
 }
 
-uint8_t do_isff(uint16_t size) {
+void do_isff(uint16_t size) {
     uint16_t  cntFF = 0, cntXX = 0;
     // loop
     for(uint16_t idx=0; idx<size; idx++) {
@@ -445,6 +445,32 @@ uint8_t do_isff(uint16_t size) {
     tx_pgm_txt(isff_ff); tx_hexa_word(cntFF);
     tx_pgm_txt(isff_xx); tx_hexa_word(cntXX);
     tx_pgm_txt(eq_eoln);    
+}
+
+uint16_t do_count_bad(uint16_t size) {
+    uint16_t  cntFF = 0, cntXX = 0;
+    //
+    Serial.write('=');
+    // loop
+    for(uint16_t idx=0; idx<size; idx++) {
+        // data
+        uint8_t data = read_data();
+        // sums
+        if (data == 0xff)
+            cntFF++;
+        else
+            cntXX++;
+        // next address
+        address_inc();
+    }
+    // result
+    float percent = 100 * cntFF / size;
+    Serial.print(percent);
+    Serial.write("%("); tx_hexa_word(cntFF);
+    Serial.write("/");  tx_hexa_word(cntXX);
+    Serial.write(")");
+    //
+    return cntXX;    
 }
 
 uint16_t parse_hexa(char *ascii) {
@@ -657,6 +683,23 @@ void loop() {
         } else if (strstarts("isff", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
             do_isff(size);
+        // loop checking 0xff percentage
+        } else if (strstarts("ff%", cmd)) {
+            uint16_t size = parse_hexa(&cmd[4]);
+            uint16_t save_address = cntAddress;
+            uint16_t bad;
+            uint8_t pass;
+            do {
+                bad = do_count_bad(size);
+                address_0();
+                for(uint16_t a = 0; a < save_address; a++)
+                    address_inc();
+                // new-line each 8 passes
+                pass++;
+                if (pass % 8)
+                    Serial.println();
+            } while (bad > 0);            
+        // unknown command
         } else
             unknown_command();
 
