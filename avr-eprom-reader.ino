@@ -161,7 +161,7 @@ const char volt_5P[]  PROGMEM = "voltage +5V Vcc=+";
 const char volt_adc[] PROGMEM = "V adc:$";
 const char volt_div[] PROGMEM = " divider=";
 
-const char isempty_anykey[] PROGMEM = "= loop checking = each . represents 1kB = ANY received char will abort the loop =\n";
+const char isempty_anykey[] PROGMEM = "= loop checking = each . represents 1kB = press ENTER to abort the loop =\n";
 const char isempty_addr[]  PROGMEM = "= block addr: ";
 const char isempty_empty[] PROGMEM = " = empty: ";
 const char isempty_val[]   PROGMEM = "% = bytes[$";
@@ -413,7 +413,7 @@ char rx_char_timeout(uint16_t ms) {
     return '\0';
 }
 
-uint8_t do_xmodem(uint16_t size) {
+uint8_t send_xmodem(uint16_t size) {
     uint16_t block_size = 128;
     uint8_t retry = 16;
     uint8_t block_num = 1;
@@ -459,6 +459,17 @@ uint8_t do_xmodem(uint16_t size) {
     if (received != control.ACK) return 3;
     // ok = exit code 0
     return 0;
+}
+
+void do_xmodem(uint16_t size) {
+    //
+    tx_pgm_txt(xmodem_start);
+    // wait until tx buffer is empty
+    Serial.flush();
+    delay(1000);
+    uint8_t code = send_xmodem(size);
+    // ttx back status message from error code
+    tx_pgm_arr(&(xmodem[code & 0x3]));
 }
 
 bool chip_is_empty(uint16_t size, uint8_t mask) {
@@ -511,6 +522,20 @@ bool chip_is_empty(uint16_t size, uint8_t mask) {
     //Serial.print("cnt_nonempty=$"); Serial.println(cnt_nonempty, HEX);
     // 
     return cnt_empty == size;
+}
+
+void loop_chip_is_empty(uint16_t size, uint8_t mask) {
+    // save current address
+    uint16_t start_addr = cntAddress;
+    //
+    tx_pgm_txt(isempty_anykey);
+    // any char will stop loop
+    while (! enter_received()) {
+        chip_is_empty(size, mask);
+        address_set(start_addr);
+        // small delay
+        delay(1000);
+    };            
 }
 
 uint16_t parse_hexa(char *ascii) {
@@ -601,6 +626,46 @@ void tx_block(uint16_t size, uint8_t *buffer) {
     */
 }
 
+void set_echo_mode(char *mode) {
+    //
+    if (strcmp("on", mode) == 0)
+        ECHO_MODE = echoON;
+    else if (strcmp("off", mode) == 0)
+        ECHO_MODE = echoOFF;
+    else if (strcmp("dec", mode) == 0)
+        ECHO_MODE = echoDEC;
+    else if (strcmp("hex", mode) == 0)
+        ECHO_MODE = echoHEX;
+}
+
+// true if \r or \n received
+bool enter_received() {
+    // read incoming chars
+    while (Serial.available()) {
+        int chr = Serial.read();
+        if ((char) chr == '\n' || (char) chr == '\r')
+            return true;
+    }
+    return false;
+}
+
+void set_bd_speed(uint32_t speed) {
+    //
+    Serial.println();
+    tx_pgm_txt(bd_0);
+    Serial.print(speed);
+    tx_pgm_txt(bd_1);
+    Serial.flush();
+    Serial.end();
+    delay(1000);
+    Serial.begin(speed);
+    // echo U until \n or \r receiver
+    while (! enter_received()) {
+        Serial.print('U');
+        delay(1000);
+    }
+}
+
 // block until line from pc is received
 char *rx_line_until_eoln() {
     uint8_t idx = 0;
@@ -659,14 +724,7 @@ void loop() {
         // echo mode
         else if (strstarts("echo", cmd)) {
             char *mode = &cmd[5];
-            if (strcmp("on", mode) == 0)
-                ECHO_MODE = echoON;
-            else if (strcmp("off", mode) == 0)
-                ECHO_MODE = echoOFF;
-            else if (strcmp("dec", mode) == 0)
-                ECHO_MODE = echoDEC;
-            else if (strcmp("hex", mode) == 0)
-                ECHO_MODE = echoHEX;
+            set_echo_mode(mode);
         // show address counter
         } else if (strcmp("addr?", cmd) == 0) {
             tx_address();
@@ -678,22 +736,7 @@ void loop() {
         // set baud rate
         } else if (strstarts("bd", cmd)) {
             uint16_t speed = parse_hexa(&cmd[3]);
-            Serial.println();
-            tx_pgm_txt(bd_0);
-            Serial.print(speed);
-            tx_pgm_txt(bd_1);
-            Serial.flush();
-            Serial.end();
-            Serial.begin(speed);
-            while (1) {
-                delay(1000);
-                Serial.print('U');
-                if (Serial.available()) {
-                    int chr = Serial.read();
-                    if ((char) chr == '\n' || (char) chr == '\r')
-                        break;
-                }
-            }
+            set_bd_speed(speed);
         // read
         } else if (strstarts("rd", cmd)) {
             do_rd();
@@ -709,13 +752,7 @@ void loop() {
         // xmodem
         } else if (strstarts("xmdm", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
-            tx_pgm_txt(xmodem_start);
-            // wait until tx buffer is empty
-            Serial.flush();
-            delay(1000);
-            uint8_t code = do_xmodem(size);
-            // ttx back status message from error code
-            tx_pgm_arr(&(xmodem[code & 0x3]));
+            do_xmodem(size);
         // is 0xFF
         } else if (strstarts("isff", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
@@ -723,16 +760,7 @@ void loop() {
         // loop checking 0xff percentage
         } else if (strstarts("@ff", cmd)) {
             uint16_t size = parse_hexa(&cmd[4]);
-            uint16_t start_addr = cntAddress;
-            //
-            tx_pgm_txt(isempty_anykey);
-            // any char will stop loop
-            while (Serial.available() == 0)  {
-                chip_is_empty(size, 0xff);
-                address_set(start_addr);
-                // small delay
-                delay(1000);
-            };            
+            loop_chip_is_empty(size, 0xff);
         // unknown command
         } else
             unknown_command();
