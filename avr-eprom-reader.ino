@@ -44,9 +44,45 @@
 // TODO: power-up/down sequence
 // TODO: xmodem protocol
 
-const char version[] = "2021.03.24";
+const char version[] PROGMEM = "2021.03.25";
 
-const uint8_t RX_BUFF_SIZE = 16;
+const char usage_00[] PROGMEM = "available commands: \n";
+const char usage_01[] PROGMEM = "?         ... this usage help \n";
+const char usage_02[] PROGMEM = "ver       ... show firmware version \n";
+const char usage_03[] PROGMEM = "echo mode ... set echo mode (off, on, dec, hex) \n";
+const char usage_04[] PROGMEM = "     off  ... do not echo received chars \n";
+const char usage_05[] PROGMEM = "     on   ... echo back each received char (default) \n";
+const char usage_06[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug) \n";
+const char usage_07[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug) \n";
+const char usage_08[] PROGMEM =  "bd speed  ... set serial communication speed (default 9600) \n";
+const char usage_09[] PROGMEM =  "rst       ... reset address counter (set address to 0) \n";
+const char usage_10[] PROGMEM =  "inc       ... increment address counter (next address) \n";
+const char usage_11[] PROGMEM =  "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
+const char usage_12[] PROGMEM =  "rd        ... read actual address \n";
+const char usage_13[] PROGMEM =  "rd++      ... read and increment address \n";
+const char usage_14[] PROGMEM =  "addr adr  ... set address counter to adr (next read will start here) \n";
+const char usage_15[] PROGMEM =  "addr?     ... show actual address counter \n";
+const char usage_16[] PROGMEM =  "dump      ... dump block 16 bytes \n";
+const char usage_17[] PROGMEM =  "dump size ... dump block size (16 bytes per line) \n";
+const char usage_18[] PROGMEM =  "xmdm size ... read block size and send via xmodem protocol to PC \n";
+const char usage_19[] PROGMEM =  "isff size ... check if entire block size is 0xFF (EPROM empty and ready for prog) \n";
+const char usage_20[] PROGMEM =  "ff%  size ... loop checking block size and display percentage of 0xFF cells \n";
+const char usage_21[] PROGMEM =  "\n";
+const char usage_22[] PROGMEM =  "numbers (size, address, speed) can be entered as: \n";
+const char usage_23[] PROGMEM =  "    12345 ... decimal number     (max 65535) \n";
+const char usage_24[] PROGMEM =  "    $1234 ... hexadecimal number (max $ffff) \n";
+const char usage_25[] PROGMEM =  "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
+const char usage_26[] PROGMEM =  "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
+const char usage_27[] PROGMEM =  "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
+
+const char *const usage[] PROGMEM = {
+    usage_00, usage_01, usage_02, usage_03, usage_04, usage_05, usage_06, usage_07, usage_08, usage_09,
+    usage_10, usage_11, usage_12, usage_13, usage_14, usage_15, usage_16, usage_17, usage_18, usage_19,
+    usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, usage_26, usage_27 //, usage_28, usage_29,
+};
+
+#define RX_BUFF_SIZE  16
+#define TX_BUFF_SIZE 132    // SOH + # + #'1 + 128xDATA + SUM
 
 // HW
 const uint8_t IC4040_RST =  8;
@@ -93,7 +129,45 @@ const struct {
     uint8_t PAD = 0x1a;
 } control;
 
+const char fw[] PROGMEM         = "= firmware revision: ";
+const char prompt_str[] PROGMEM = "reader > ";
+const char pardon[] PROGMEM     = "Pardon ?\n";
+
+const char xmodem_start[] PROGMEM = "activate xmodem to save a file ";
+const char xmodem_0[] PROGMEM = "OK";
+const char xmodem_1[] PROGMEM = "SYNC NACK not received"; 
+const char xmodem_2[] PROGMEM = "DATA BLOCK ACK not received"; 
+const char xmodem_3[] PROGMEM = "EOT ACK not received"; 
+
+const char *const xmodem[] PROGMEM = {
+    xmodem_0, xmodem_1, xmodem_2, xmodem_3
+};
+
+const char bd_0[] PROGMEM = "= setting communication speed to ";
+const char bd_1[] PROGMEM = " Bd = sending char 'U' till <NL> is received =";
+
+const char bsum_0[]   PROGMEM = "= block checksum";
+const char bsum_add[] PROGMEM = " = add: ";
+const char bsum_xor[] PROGMEM = " = xor: ";
+const char bsum_and[] PROGMEM = " = and: ";
+const char bsum_or[]  PROGMEM = " = or: ";
+const char eq_eoln[]  PROGMEM = " =\n";
+
+const char volt_5N[]  PROGMEM = "voltage -5V Vbb=-";
+const char volt_12[]  PROGMEM = "voltage 12V Vdd=";
+const char volt_5P[]  PROGMEM = "voltage +5V Vcc=+";
+const char volt_adc[] PROGMEM = "V adc:$";
+const char volt_div[] PROGMEM = " divider=";
+
+const char isff_0[]  PROGMEM = "= block check";
+const char isff_ff[] PROGMEM = " = $ff (empty): $";
+const char isff_xx[] PROGMEM = " = !$ff (programmed): $";
+
 uint16_t cntAddress  = 0;
+
+// global rx/tx buffers
+char RX_BUFFER[RX_BUFF_SIZE] = "";
+char TX_BUFFER[TX_BUFF_SIZE] = "";
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -113,67 +187,36 @@ void setup() {
     prompt();
 }
 
-void prompt() {
-    //Serial.println();
-    Serial.print("reader > ");
-}
-
-void unknown_command() {
-    //Serial.println();
-    Serial.println("Pardon ?");
-}
-
-void cmd_ver() {
-    //Serial.println();
-    Serial.print("= firmware revision: ");
-    Serial.print(version);
-    Serial.println(" =");
-}
-
-const char usage_00[] PROGMEM = "available commands:";
-const char usage_01[] PROGMEM = "?         ... this usage help";
-const char usage_02[] PROGMEM = "ver       ... show firmware version";
-const char usage_03[] PROGMEM = "echo mode ... set echo mode (off, on, dec, hex)";
-const char usage_04[] PROGMEM = "     off  ... do not echo received chars";
-const char usage_05[] PROGMEM = "     on   ... echo back each received char (default)";
-const char usage_06[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug)";
-const char usage_07[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug)";
-const char usage_08[] PROGMEM =  "bd speed  ... set serial communication speed (default 9600)";
-const char usage_09[] PROGMEM =  "rst       ... reset address counter (set address to 0)";
-const char usage_10[] PROGMEM =  "inc       ... increment address counter (next address)";
-const char usage_11[] PROGMEM =  "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V";
-const char usage_12[] PROGMEM =  "rd        ... read actual address";
-const char usage_13[] PROGMEM =  "rd++      ... read and increment address";
-const char usage_14[] PROGMEM =  "addr adr  ... set address counter to adr (next rd or dump will start from adr)";
-const char usage_15[] PROGMEM =  "addr?     ... show actual address counter";
-const char usage_16[] PROGMEM =  "dump      ... dump block 16 bytes";
-const char usage_17[] PROGMEM =  "dump size ... dump block size (16 bytes per line)";
-const char usage_18[] PROGMEM =  "xmdm size ... read block size and transfer it via xmodem protocol to PC (xmodem-read)";
-const char usage_19[] PROGMEM =  "";
-const char usage_20[] PROGMEM =  "numbers (size, address, speed) can be entered as:";
-const char usage_21[] PROGMEM =  "    12345 ... decimal number     (max 65535)";
-const char usage_22[] PROGMEM =  "    $1234 ... hexadecimal number (max $ffff)";
-const char usage_23[] PROGMEM =  "    123k  ... decimal number in kilo-bytes (x1024, max  64k)";
-const char usage_24[] PROGMEM =  "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k)";
-const char usage_25[] PROGMEM =  "    m64   ... memory capacity, for 2764 use m64 (x128, max m512)";
-
-const char *const usage[] PROGMEM = {
-    usage_00, usage_01, usage_02, usage_03, usage_04, usage_05, usage_06, usage_07, usage_08, usage_09,
-    usage_10, usage_11, usage_12, usage_13, usage_14, usage_15, usage_16, usage_17, usage_18, usage_19,
-    usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, //usage_26, usage_27, usage_28, usage_29,
-};
-
-void tx_pgm_string(uint16_t addr) {
-    // should enough for the longest string
-    char buffer[50];
+// tx string stored in program memory at address
+void tx_pgm_arr(const char * const *src) {
     //
-    strcpy_P(buffer, (char *)pgm_read_word(addr));
-    Serial.println(buffer);
+    strlcpy_P(TX_BUFFER, (char *)pgm_read_word(src), TX_BUFF_SIZE);
+    Serial.print(TX_BUFFER);
 }
 
 void cmd_help() {
     for(uint8_t idx=0; idx<26; idx++)
-        tx_pgm_string(&(usage[idx]));
+        tx_pgm_arr(&(usage[idx]));
+}
+
+void tx_pgm_txt(const char *src) {
+    //
+    strlcpy_P(TX_BUFFER, src, TX_BUFF_SIZE);
+    Serial.print(TX_BUFFER);
+}
+
+void prompt() {
+    tx_pgm_txt(prompt_str);
+}
+
+void unknown_command() {
+    tx_pgm_txt(pardon);
+}
+
+void cmd_ver() {
+    tx_pgm_txt(fw);
+    tx_pgm_txt(version);
+    tx_pgm_txt(eq_eoln);
 }
 
 void address_0() {
@@ -192,20 +235,20 @@ void tx_voltage(int pin, float divider) {
     uint16_t adc = analogRead(pin);
     float voltage = adc * Vref * divider / 1024;
     Serial.print(voltage, 3);
-    Serial.print("V adc:$");
+    tx_pgm_txt(volt_adc);
     tx_hexa_word(adc);
-    Serial.print(" divider=");
+    tx_pgm_txt(volt_div);
     Serial.print(divider, 3);
 }
 
 void voltages() {
-    Serial.print("voltage -5V Vbb=-");
+    tx_pgm_txt(volt_5N);
     tx_voltage(V5N, V5Ndivider);
     Serial.println();
-    Serial.print("voltage 12V Vdd=");
+    tx_pgm_txt(volt_12);
     tx_voltage(V12, V12divider);
     Serial.println();
-    Serial.print("voltage +5V Vcc=+");
+    tx_pgm_txt(volt_5P);
     tx_voltage(V5P, V5Pdivider);
     Serial.println();
 }
@@ -292,16 +335,16 @@ void do_dump(uint16_t size) {
     }
     // checksums
     Serial.println();
-    Serial.print("= block checksum");
-    Serial.print(" = add: "); tx_hexa_byte(sumAdd);
-    Serial.print(" = xor: "); tx_hexa_byte(sumXor);
-    Serial.print(" = and: "); tx_hexa_byte(sumAnd);
-    Serial.print(" = or: ");  tx_hexa_byte(sumOr);
-    Serial.println(" =");
+    tx_pgm_txt(bsum_0);
+    tx_pgm_txt(bsum_add); tx_hexa_byte(sumAdd);
+    tx_pgm_txt(bsum_xor); tx_hexa_byte(sumXor);
+    tx_pgm_txt(bsum_and); tx_hexa_byte(sumAnd);
+    tx_pgm_txt(bsum_or);  tx_hexa_byte(sumOr);
+    tx_pgm_txt(eq_eoln);
 }
 
 // <SOH><blk #><255-blk #><--128 data bytes--><cksum>
-void rd_xmdm_block(uint8_t block_num, uint16_t block_size, uint8_t *buffer, uint16_t padidx) {
+void rd_xmdm_block(uint8_t block_num, uint16_t block_size, char *buffer, uint16_t padidx) {
     uint8_t data_sum = 0;
 
     // SOH
@@ -335,10 +378,8 @@ char rx_char_timeout(uint16_t ms) {
     return '\0';
 }
 
-int8_t do_xmodem(uint16_t size) {
+uint8_t do_xmodem(uint16_t size) {
     uint16_t block_size = 128;
-    // buffer size >= block_size + 4 
-    uint8_t buffer[132];
     uint8_t retry = 16;
     uint8_t block_num = 1;
     char received;
@@ -350,23 +391,23 @@ int8_t do_xmodem(uint16_t size) {
         Serial.write('.');
         delay(250);
     }
-    // sync NACK not received = exit code -1
-    if (received != control.NAK) return -1;
+    // sync NACK not received = exit code 1
+    if (received != control.NAK) return 1;
 
     // data block
     for(uint16_t sent=0; sent<size; sent+=block_size) {
         // read to buffer (xmodem format)
-        rd_xmdm_block(block_num, block_size, buffer, size-sent);
+        rd_xmdm_block(block_num, block_size, TX_BUFFER, size-sent);
         // send and wait ACK
         for(uint8_t attempt=0; attempt<retry; attempt++) {
             // send block from buffer
-            Serial.write(buffer, block_size+4);
+            Serial.write(TX_BUFFER, block_size+4);
             // wait for ACK
             received = rx_char_timeout(1000);
             if (received == control.ACK) break;
         }
-        // ACK not received after retry attempts = exit code -2
-        if (received != control.ACK) return -2;
+        // ACK not received after retry attempts = exit code 2
+        if (received != control.ACK) return 2;
         // next block
         block_num++;
     }
@@ -379,15 +420,37 @@ int8_t do_xmodem(uint16_t size) {
         received = rx_char_timeout(1000);
         if (received == control.ACK) break;
     }
-    // EOT ACK not received = exit code -3
-    if (received != control.ACK) return -3;
+    // EOT ACK not received = exit code 3
+    if (received != control.ACK) return 3;
     // ok = exit code 0
     return 0;
+}
+
+uint8_t do_isff(uint16_t size) {
+    uint16_t  cntFF = 0, cntXX = 0;
+    // loop
+    for(uint16_t idx=0; idx<size; idx++) {
+        // data
+        uint8_t data = read_data();
+        // sums
+        if (data == 0xff)
+            cntFF++;
+        else
+            cntXX++;
+        // next address
+        address_inc();
+    }
+    // result
+    tx_pgm_txt(isff_0);
+    tx_pgm_txt(isff_ff); tx_hexa_word(cntFF);
+    tx_pgm_txt(isff_xx); tx_hexa_word(cntXX);
+    tx_pgm_txt(eq_eoln);    
 }
 
 uint16_t parse_hexa(char *ascii) {
     uint16_t num  =  0;
     uint8_t  base = 10;
+    uint8_t  mult = 1;
 
     while (*ascii) {
         // trim leading spaces
@@ -403,7 +466,7 @@ uint16_t parse_hexa(char *ascii) {
         }
         // memory prefix ?
         if (*ascii == 'm') {
-            base = 128;
+            mult = 128;
             ascii++;
             continue;
         }
@@ -423,6 +486,7 @@ uint16_t parse_hexa(char *ascii) {
         // next char in string
         ascii++;
     }
+    num *= mult;
     return num;
 }
 
@@ -473,7 +537,6 @@ void tx_block(uint16_t size, uint8_t *buffer) {
 
 // block until line from pc is received
 char *rx_line_until_eoln() {
-    static char rx_string[RX_BUFF_SIZE];
     uint8_t idx = 0;
     //
     // discard leading white chars
@@ -486,17 +549,17 @@ char *rx_line_until_eoln() {
             tx_echo_char(chr);
             // line completed when '\n' or 'r' received
             if (chr == '\n' || chr == '\r') {
-                rx_string[idx] = '\0';
+                RX_BUFFER[idx] = '\0';
                 rx_discard_whitespaces();
                 break;
             }
             // received char to buffer
-            rx_string[idx] = (char) chr;
+            RX_BUFFER[idx] = (char) chr;
             idx++;
         }
     }
     // received string
-    return rx_string;
+    return RX_BUFFER;
 }
 
 bool strstarts(const char *prefix, const char *str)
@@ -508,9 +571,6 @@ bool strstarts(const char *prefix, const char *str)
 
 // the loop function runs over and over again forever
 void loop() {
-    // command from PC
-    //String command = "";
-    //command.reserve(RX_BUFF_SIZE);
     // receive 
     if (Serial.available() > 0) {
         char *cmd = rx_line_until_eoln();
@@ -555,9 +615,9 @@ void loop() {
         } else if (strstarts("bd", cmd)) {
             uint16_t speed = parse_hexa(&cmd[3]);
             Serial.println();
-            Serial.print("= setting communication speed to ");
+            tx_pgm_txt(bd_0);
             Serial.print(speed);
-            Serial.println(" Bd = sending char 'U' till <NL> is received =");
+            tx_pgm_txt(bd_1);
             Serial.flush();
             Serial.end();
             Serial.begin(speed);
@@ -585,22 +645,18 @@ void loop() {
         // xmodem
         } else if (strstarts("xmdm", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
-            Serial.print("activate xmodem to save a file ");
+            tx_pgm_txt(xmodem_start);
             // wait until tx buffer is empty
             Serial.flush();
             delay(1000);
-            int8_t code = do_xmodem(size);
+            uint8_t code = do_xmodem(size);
             Serial.write(' ');
-            switch (code) {
-                case -1: Serial.println("SYNC NACK not received"); 
-                         break;
-                case -2: Serial.println("DATA BLOCK ACK not received"); 
-                         break;
-                case -3: Serial.println("EOT ACK not received"); 
-                         break;
-                case  0: Serial.println("OK");
-                         break;
-            }
+            // ttx back status message from error code
+            tx_pgm_arr(&(xmodem[code & 0x3]));
+        // is 0xFF
+        } else if (strstarts("isff", cmd)) {
+            uint16_t size = parse_hexa(&cmd[5]);
+            do_isff(size);
         } else
             unknown_command();
 
