@@ -159,7 +159,8 @@ const char volt_5P[]  PROGMEM = "voltage +5V Vcc=+";
 const char volt_adc[] PROGMEM = "V adc:$";
 const char volt_div[] PROGMEM = " divider=";
 
-const char isff_0[]  PROGMEM = "= block address: ";
+const char isff_anykey[] PROGMEM = "= loop checking = each . represents 1kB = ANY received char will abort the loop =\n";
+const char isff_0[]  PROGMEM = "= block addr: ";
 const char isff_1[]  PROGMEM = " = erased: ";
 const char isff_ff[] PROGMEM = "% = $ff/empty: $";
 const char isff_xx[] PROGMEM = " = !$ff/programmed: $";
@@ -196,7 +197,7 @@ void tx_pgm_arr(const char * const *src) {
 }
 
 void cmd_help() {
-    for(uint8_t idx=0; idx<26; idx++)
+    for(uint8_t idx=0; idx<28; idx++)
         tx_pgm_arr(&(usage[idx]));
 }
 
@@ -442,9 +443,11 @@ uint16_t do_cnt_notff(uint16_t size) {
     // range
     tx_pgm_txt(isff_0);
     tx_address();
-    Serial.write("...");
     // loop
     for(uint16_t idx=0; idx<size; idx++) {
+        // progress each 1k
+        if ((idx & 0x3ff) == 0)
+            Serial.write('.');
         // data
         uint8_t data = read_data();
         // sums
@@ -680,15 +683,16 @@ void loop() {
             uint16_t size = parse_hexa(&cmd[4]);
             uint16_t start_addr = cntAddress;
             uint16_t bad;
+            //
+            tx_pgm_txt(isff_anykey);
             do {
                 bad = do_cnt_notff(size);
                 address_set(start_addr);
-                address_0();
-                // small delay
-                delay(500);
                 // any char will break
                 if (Serial.available() > 0)
                     break;
+                // small delay
+                delay(1000);
             } while (bad > 0);            
         // unknown command
         } else
