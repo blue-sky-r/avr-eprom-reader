@@ -54,31 +54,33 @@ const char usage_04[] PROGMEM = "     off  ... do not echo received chars \n";
 const char usage_05[] PROGMEM = "     on   ... echo back each received char (default) \n";
 const char usage_06[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug) \n";
 const char usage_07[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug) \n";
-const char usage_08[] PROGMEM =  "bd speed  ... set serial communication speed (default 9600) \n";
-const char usage_09[] PROGMEM =  "rst       ... reset address counter (set address to 0) \n";
-const char usage_10[] PROGMEM =  "inc       ... increment address counter (next address) \n";
-const char usage_11[] PROGMEM =  "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
-const char usage_12[] PROGMEM =  "rd        ... read actual address \n";
-const char usage_13[] PROGMEM =  "rd++      ... read and increment address \n";
-const char usage_14[] PROGMEM =  "addr adr  ... set address counter to adr (next read will start here) \n";
-const char usage_15[] PROGMEM =  "addr?     ... show actual address counter \n";
-const char usage_16[] PROGMEM =  "dump      ... dump block 16 bytes \n";
-const char usage_17[] PROGMEM =  "dump size ... dump block size (16 bytes per line) \n";
-const char usage_18[] PROGMEM =  "xmdm size ... read block size and send via xmodem protocol to PC \n";
-const char usage_19[] PROGMEM =  "isff size ... check if entire block size is 0xFF (EPROM empty and ready for prog) \n";
-const char usage_20[] PROGMEM =  "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
-const char usage_21[] PROGMEM =  "\n";
-const char usage_22[] PROGMEM =  "numbers (size, address, speed) can be entered as: \n";
-const char usage_23[] PROGMEM =  "    12345 ... decimal number     (max 65535) \n";
-const char usage_24[] PROGMEM =  "    $1234 ... hexadecimal number (max $ffff) \n";
-const char usage_25[] PROGMEM =  "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
-const char usage_26[] PROGMEM =  "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
-const char usage_27[] PROGMEM =  "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
+const char usage_08[] PROGMEM = "bd speed  ... set serial communication speed (default 9600) \n";
+const char usage_09[] PROGMEM = "rst       ... reset address counter (set address to 0) \n";
+const char usage_10[] PROGMEM = "inc       ... increment address counter (next address) \n";
+const char usage_11[] PROGMEM = "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
+const char usage_12[] PROGMEM = "rd        ... read actual address \n";
+const char usage_13[] PROGMEM = "rd++      ... read and increment address \n";
+const char usage_14[] PROGMEM = "addr adr  ... set address counter to adr (next read will start here) \n";
+const char usage_15[] PROGMEM = "addr?     ... show actual address counter \n";
+const char usage_16[] PROGMEM = "dump      ... dump block 16 bytes \n";
+const char usage_17[] PROGMEM = "dump size ... dump block size (16 bytes per line) \n";
+const char usage_18[] PROGMEM = "xmdm size ... read block size and send via xmodem protocol to PC \n";
+const char usage_19[] PROGMEM = "isff size ... check if entire block size is 0xFF (EPROM empty) \n";
+const char usage_20[] PROGMEM = "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
+const char usage_21[] PROGMEM = "is00 size ... check if entire block size is 0x00 (PROM empty) \n";
+const char usage_22[] PROGMEM = "@00  size ... loop checking block size and display percentage of 0x00 cells \n";
+const char usage_23[] PROGMEM = "\n";
+const char usage_24[] PROGMEM = "numbers (size, address, speed) can be entered as: \n";
+const char usage_25[] PROGMEM = "    12345 ... decimal number     (max 65535) \n";
+const char usage_26[] PROGMEM = "    $1234 ... hexadecimal number (max $ffff) \n";
+const char usage_27[] PROGMEM = "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
+const char usage_28[] PROGMEM = "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
+const char usage_29[] PROGMEM = "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
 
 const char *const usage[] PROGMEM = {
     usage_00, usage_01, usage_02, usage_03, usage_04, usage_05, usage_06, usage_07, usage_08, usage_09,
     usage_10, usage_11, usage_12, usage_13, usage_14, usage_15, usage_16, usage_17, usage_18, usage_19,
-    usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, usage_26, usage_27 //, usage_28, usage_29,
+    usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, usage_26, usage_27, usage_28, usage_29
 };
 
 #define RX_BUFF_SIZE  16
@@ -117,6 +119,9 @@ const float Vref = 1.1;
 
 // local echo mode
 enum { echoOFF, echoON, echoDEC, echoHEX } ECHO_MODE = echoON;
+
+// end-of-line mode
+enum { eolnCR, eolnLF, eolnCRLF } EOLN_MODE = eolnCRLF;
 
 // sequencing: -5 -> +5 -> +12
 
@@ -204,10 +209,12 @@ void tx_pgm_arr(const char * const *src) {
     //
     strlcpy_P(TX_BUFFER, (char *)pgm_read_word(src), TX_BUFF_SIZE);
     Serial.print(TX_BUFFER);
+    //
+    //tx_eoln();
 }
 
 void cmd_help() {
-    for(uint8_t idx=0; idx<28; idx++)
+    for(uint8_t idx=0; idx<30; idx++)
         tx_pgm_arr(&(usage[idx]));
 }
 
@@ -612,6 +619,21 @@ void tx_echo_char(int chr) {
     }
 }
 
+// tx end-of-line
+void tx_eoln() {
+    switch (EOLN_MODE) {
+        case eolnCR:
+            Serial.write('\r');
+            break;
+        case eolnLF:
+            Serial.write('\n');
+            break;
+        default:
+            Serial.write("\r\n");
+            break;
+    }
+}
+
 void tx_block(uint16_t size, uint8_t *buffer) {
     for(uint16_t idx=0; idx<size; idx++)
         tx_echo_char(*buffer++);
@@ -757,10 +779,18 @@ void loop() {
         } else if (strstarts("isff", cmd)) {
             uint16_t size = parse_hexa(&cmd[5]);
             chip_is_empty(size, 0xff);
+        // is 0x00
+        } else if (strstarts("isff", cmd)) {
+            uint16_t size = parse_hexa(&cmd[5]);
+            chip_is_empty(size, 0x00);
         // loop checking 0xff percentage
         } else if (strstarts("@ff", cmd)) {
             uint16_t size = parse_hexa(&cmd[4]);
             loop_chip_is_empty(size, 0xff);
+        // loop checking 0x00 percentage
+        } else if (strstarts("@00", cmd)) {
+            uint16_t size = parse_hexa(&cmd[4]);
+            loop_chip_is_empty(size, 0x00);
         // unknown command
         } else
             unknown_command();
