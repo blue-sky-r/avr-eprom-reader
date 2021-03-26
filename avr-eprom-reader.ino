@@ -44,43 +44,51 @@
 // TODO: power-up/down sequence
 // TODO: xmodem protocol
 
-const char version[] PROGMEM = "2021.03.25";
+const char version[] PROGMEM = "2021.03.26";
+
+// NOTE: only \n at the end of the string will be correctly processed (replaced)
 
 const char usage_00[] PROGMEM = "available commands: \n";
 const char usage_01[] PROGMEM = "?         ... this usage help \n";
 const char usage_02[] PROGMEM = "ver       ... show firmware version \n";
-const char usage_03[] PROGMEM = "echo mode ... set echo mode (off, on, dec, hex) \n";
-const char usage_04[] PROGMEM = "     off  ... do not echo received chars \n";
-const char usage_05[] PROGMEM = "     on   ... echo back each received char (default) \n";
-const char usage_06[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug) \n";
-const char usage_07[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug) \n";
-const char usage_08[] PROGMEM = "bd speed  ... set serial communication speed (default 9600) \n";
-const char usage_09[] PROGMEM = "rst       ... reset address counter (set address to 0) \n";
-const char usage_10[] PROGMEM = "inc       ... increment address counter (next address) \n";
-const char usage_11[] PROGMEM = "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
-const char usage_12[] PROGMEM = "rd        ... read actual address \n";
-const char usage_13[] PROGMEM = "rd++      ... read and increment address \n";
-const char usage_14[] PROGMEM = "addr adr  ... set address counter to adr (next read will start here) \n";
-const char usage_15[] PROGMEM = "addr?     ... show actual address counter \n";
-const char usage_16[] PROGMEM = "dump      ... dump block 16 bytes \n";
-const char usage_17[] PROGMEM = "dump size ... dump block size (16 bytes per line) \n";
-const char usage_18[] PROGMEM = "xmdm size ... read block size and send via xmodem protocol to PC \n";
-const char usage_19[] PROGMEM = "isff size ... check if entire block size is 0xFF (EPROM empty) \n";
-const char usage_20[] PROGMEM = "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
-const char usage_21[] PROGMEM = "is00 size ... check if entire block size is 0x00 (PROM empty) \n";
-const char usage_22[] PROGMEM = "@00  size ... loop checking block size and display percentage of 0x00 cells \n";
-const char usage_23[] PROGMEM = "\n";
-const char usage_24[] PROGMEM = "numbers (size, address, speed) can be entered as: \n";
-const char usage_25[] PROGMEM = "    12345 ... decimal number     (max 65535) \n";
-const char usage_26[] PROGMEM = "    $1234 ... hexadecimal number (max $ffff) \n";
-const char usage_27[] PROGMEM = "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
-const char usage_28[] PROGMEM = "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
-const char usage_29[] PROGMEM = "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
+const char usage_03[] PROGMEM = "eol  char ... set end-of-line char (cr, lf, crlf, lfcr) \n";
+const char usage_04[] PROGMEM = "     cr   ... dos-windows style end-of-line \n";
+const char usage_05[] PROGMEM = "     lf   ... unix-linux-mac style end-of-line \n";
+const char usage_06[] PROGMEM = "     crlf ... max.compatibility mode (default) \n";
+const char usage_07[] PROGMEM = "echo mode ... set echo mode (off, on, dec, hex) \n";
+const char usage_08[] PROGMEM = "     off  ... do not echo received chars \n";
+const char usage_09[] PROGMEM = "     on   ... echo back each received char (default) \n";
+const char usage_10[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug) \n";
+const char usage_11[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug) \n";
+const char usage_12[] PROGMEM = "bd speed  ... set serial communication speed (default 9600) \n";
+const char usage_13[] PROGMEM = "\n";
+const char usage_14[] PROGMEM = "rst       ... reset address counter (set address to 0) \n";
+const char usage_15[] PROGMEM = "inc       ... increment address counter (next address) \n";
+const char usage_16[] PROGMEM = "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
+const char usage_17[] PROGMEM = "rd        ... read actual address \n";
+const char usage_18[] PROGMEM = "rd++      ... read and increment address \n";
+const char usage_19[] PROGMEM = "addr adr  ... set address counter to adr (next read will start here) \n";
+const char usage_20[] PROGMEM = "addr?     ... show actual address counter \n";
+const char usage_21[] PROGMEM = "dump      ... dump block 16 bytes \n";
+const char usage_22[] PROGMEM = "dump size ... dump block size (16 bytes per line) \n";
+const char usage_23[] PROGMEM = "xmdm size ... read block size and send via xmodem protocol to PC \n";
+const char usage_24[] PROGMEM = "isff size ... check if entire block size is 0xFF (EPROM empty) \n";
+const char usage_25[] PROGMEM = "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
+const char usage_26[] PROGMEM = "is00 size ... check if entire block size is 0x00 (PROM empty) \n";
+const char usage_27[] PROGMEM = "@00  size ... loop checking block size and display percentage of 0x00 cells \n";
+const char usage_28[] PROGMEM = "\n";
+const char usage_29[] PROGMEM = "numbers (size, address, speed) can be entered as: \n";
+const char usage_30[] PROGMEM = "    12345 ... decimal number     (max 65535) \n";
+const char usage_31[] PROGMEM = "    $1234 ... hexadecimal number (max $ffff) \n";
+const char usage_32[] PROGMEM = "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
+const char usage_33[] PROGMEM = "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
+const char usage_34[] PROGMEM = "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
 
 const char *const usage[] PROGMEM = {
     usage_00, usage_01, usage_02, usage_03, usage_04, usage_05, usage_06, usage_07, usage_08, usage_09,
     usage_10, usage_11, usage_12, usage_13, usage_14, usage_15, usage_16, usage_17, usage_18, usage_19,
-    usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, usage_26, usage_27, usage_28, usage_29
+    usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, usage_26, usage_27, usage_28, usage_29,
+    usage_30, usage_31, usage_32, usage_33, usage_34 //, usage_35, usage_36, usage_37, usage_38, usage_39.
 };
 
 #define RX_BUFF_SIZE  16
@@ -121,7 +129,7 @@ const float Vref = 1.1;
 enum { echoOFF, echoON, echoDEC, echoHEX } ECHO_MODE = echoON;
 
 // end-of-line mode
-enum { eolnCR, eolnLF, eolnCRLF } EOLN_MODE = eolnCRLF;
+enum { eolCR, eolLF, eolCRLF } EOL_MODE = eolCRLF;
 
 // sequencing: -5 -> +5 -> +12
 
@@ -207,21 +215,45 @@ void setup() {
 // tx string stored in program memory at address
 void tx_pgm_arr(const char * const *src) {
     //
-    strlcpy_P(TX_BUFFER, (char *)pgm_read_word(src), TX_BUFF_SIZE);
+    uint8_t len = strlcpy_P(TX_BUFFER, (char *)pgm_read_word(src), TX_BUFF_SIZE);
+    adjust_tx_buffer_eol(len);
     Serial.print(TX_BUFFER);
-    //
-    //tx_eoln();
 }
 
 void cmd_help() {
-    for(uint8_t idx=0; idx<30; idx++)
+    for(uint8_t idx=0; idx<35; idx++)
         tx_pgm_arr(&(usage[idx]));
 }
 
 void tx_pgm_txt(const char *src) {
     //
-    strlcpy_P(TX_BUFFER, src, TX_BUFF_SIZE);
+    uint8_t len = strlcpy_P(TX_BUFFER, src, TX_BUFF_SIZE-2);
+    adjust_tx_buffer_eol(len);
     Serial.print(TX_BUFFER);
+}
+
+void adjust_tx_buffer_eol(uint8_t idx) {
+    // nothing to adjust wthout \n
+    if (TX_BUFFER[idx] != '\n')
+        return;
+    // adjust
+    switch (EOL_MODE) {
+        case eolCR:
+            TX_BUFFER[idx] = '\r';
+            break;
+        case eolLF:
+            // already there
+            //TX_BUFFER[idx] = '\n';
+            break;
+        case eolCRLF:
+        default:
+            // LF is already there
+            // add CR
+            TX_BUFFER[++idx] = '\r';
+            // add end-of-string
+            TX_BUFFER[++idx] = '\0';
+            break;
+    }
 }
 
 void prompt() {
@@ -269,13 +301,13 @@ void tx_voltage(int pin, float divider) {
 void voltages() {
     tx_pgm_txt(volt_5N);
     tx_voltage(V5N, V5Ndivider);
-    Serial.println();
+    tx_eol();
     tx_pgm_txt(volt_12);
     tx_voltage(V12, V12divider);
-    Serial.println();
+    tx_eol();
     tx_pgm_txt(volt_5P);
     tx_voltage(V5P, V5Pdivider);
-    Serial.println();
+    tx_eol();
 }
 
 char nibble_to_hexa(uint8_t nibble) {
@@ -329,11 +361,8 @@ uint8_t read_data() {
 
 void tx_address() {
     // address
-    //Serial.println();
     Serial.print("$");
     tx_hexa_word(cntAddress);
-    // separator
-    //Serial.print(":\t");
 }
 
 uint8_t do_rd() {
@@ -344,7 +373,7 @@ uint8_t do_rd() {
     // data
     data = read_data();
     tx_hexa_byte(data);
-    Serial.println();
+    tx_eol();
     //
     return data;
 }
@@ -355,8 +384,7 @@ void do_dump(uint16_t size) {
     for(uint16_t idx=0; idx<size; idx++) {
         // arrdess each 16 bytes
         if (idx % 16 == 0) {
-            //if (idx > 0) Serial.println();
-            Serial.println();
+            tx_eol();
             tx_address();
             // separator
             Serial.print(":\t");
@@ -376,7 +404,7 @@ void do_dump(uint16_t size) {
         Serial.print(" ");
     }
     // checksums
-    Serial.println();
+    tx_eol();
     tx_pgm_txt(bsum_0);
     tx_pgm_txt(bsum_add); tx_hexa_byte(sumAdd);
     tx_pgm_txt(bsum_xor); tx_hexa_byte(sumXor);
@@ -524,9 +552,6 @@ bool chip_is_empty(uint16_t size, uint8_t mask) {
     tx_pgm_txt(isempty_bit1);  tx_hexa_3bytes(cnt_1);
     tx_pgm_txt(isempty_bit0);  tx_hexa_3bytes(cnt_0);
     tx_pgm_txt(eq_eoln);    
-    //Serial.print("size=$"); Serial.println(size, HEX);
-    //Serial.print("cnt_empty=$"); Serial.println(cnt_empty, HEX);
-    //Serial.print("cnt_nonempty=$"); Serial.println(cnt_nonempty, HEX);
     // 
     return cnt_empty == size;
 }
@@ -620,16 +645,18 @@ void tx_echo_char(int chr) {
 }
 
 // tx end-of-line
-void tx_eoln() {
-    switch (EOLN_MODE) {
-        case eolnCR:
+void tx_eol() {
+    //
+    switch (EOL_MODE) {
+        case eolCR:
             Serial.write('\r');
             break;
-        case eolnLF:
+        case eolLF:
             Serial.write('\n');
             break;
+        case eolCRLF:
         default:
-            Serial.write("\r\n");
+            Serial.write("\n\r");
             break;
     }
 }
@@ -660,6 +687,18 @@ void set_echo_mode(char *mode) {
         ECHO_MODE = echoHEX;
 }
 
+void set_eol_mode(char *mode) {
+    //
+    if (strcmp("cr", mode) == 0)
+        EOL_MODE = eolCR;
+    else if (strcmp("lr", mode) == 0)
+        EOL_MODE = eolLF;
+    else if (strcmp("crlf", mode) == 0)
+        EOL_MODE = eolCRLF;
+    else if (strcmp("lfcr", mode) == 0)
+        EOL_MODE = eolCRLF;
+}
+
 // true if \r or \n received
 bool enter_received() {
     // read incoming chars
@@ -673,7 +712,7 @@ bool enter_received() {
 
 void set_bd_speed(uint32_t speed) {
     //
-    Serial.println();
+    tx_eol();
     tx_pgm_txt(bd_0);
     Serial.print(speed);
     tx_pgm_txt(bd_1);
@@ -747,10 +786,14 @@ void loop() {
         else if (strstarts("echo", cmd)) {
             char *mode = &cmd[5];
             set_echo_mode(mode);
+        // eol mode
+        } else if (strstarts("eol", cmd)) {
+            char *mode = &cmd[4];
+            set_eol_mode(mode);
         // show address counter
         } else if (strcmp("addr?", cmd) == 0) {
             tx_address();
-            Serial.println();
+            tx_eol();
         // set address counter
         } else if (strstarts("addr", cmd)) {
             uint16_t addr = parse_hexa(&cmd[5]);
