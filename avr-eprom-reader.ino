@@ -129,8 +129,8 @@ const float Vref = 1.1;
 // local echo mode
 enum { echoOFF, echoON, echoDEC, echoHEX } ECHO_MODE = echoON;
 
-// end-of-line mode
-enum { eolAUTO, eolCR, eolLF, eolCRLF } EOL_MODE = eolAUTO;
+// end-of-line string - CR/LF/CRLF/AUTODETECT
+char EOL[2] = ""; // autodetect
 
 // sequencing: -5 -> +5 -> +12
 
@@ -210,7 +210,11 @@ void setup() {
     // 9600 Bd
     Serial.begin(9600);
     Serial.setTimeout(5000);
+    // initiate autodetec EOL if EOL is auto (empty) 
+    if (! strlen(EOL))
+        autodetect_eol();
     //
+    tx_eol();
     prompt();
 }
 
@@ -241,35 +245,15 @@ void adjust_tx_buffer_eol(uint8_t idx) {
     // nothing to adjust wthout \n
     if (TX_BUFFER[idx-1] != '\n')
         return;
-    // adjust
-    switch (EOL_MODE) {
-        case eolCR:
-            // replace \n -> \r
-            TX_BUFFER[idx-1] = '\r';
-            break;
-        case eolLF:
-            // already there
-            //TX_BUFFER[idx-1] = '\n';
-            break;
-        case eolCRLF:
-        default:
-            // LF is already there
-            //TX_BUFFER[idx-1] = '\n';
-            // add CR
-            TX_BUFFER[idx++]   = '\r';
-            // add end-of-string
-            TX_BUFFER[idx] = '\0';
-            break;
-    }
+    // copy EOL
+    strcpy(TX_BUFFER + idx-1, EOL);
 }
 
 void prompt() {
-    //tx_eol();
     tx_pgm_txt(prompt_str);
 }
 
 void unknown_command() {
-    //tx_eol();
     tx_pgm_txt(pardon);
 }
 
@@ -656,18 +640,7 @@ void tx_echo_char(int chr) {
 // tx end-of-line
 void tx_eol() {
     //
-    switch (EOL_MODE) {
-        case eolCR:
-            Serial.write('\r');
-            break;
-        case eolLF:
-            Serial.write('\n');
-            break;
-        case eolCRLF:
-        default:
-            Serial.write("\n\r");
-            break;
-    }
+    Serial.write(EOL);
 }
 
 void tx_block(uint16_t size, uint8_t *buffer) {
@@ -697,23 +670,45 @@ void set_echo_mode(char *mode) {
 }
 
 void autodetect_eol() {
+    unsigned long int timeout    = 0;
+    unsigned long int timeout_ms = 500;
+    uint8_t idx = 0;
+    //    
+    tx_pgm_txt(eol_detect);
     // wait for ENTER
-    while (! enter_received()) {
-        delay(100);
+    while (idx < 2 || (timeout > 0 && millis() > timeout)) {
+        if (Serial.available()) {
+            char c = (char) Serial.read();
+            if (c == '\r' || c == '\n') {
+                EOL[idx] = c;
+                idx++;
+                EOL[idx] = '\0';
+                // show
+                if (c == '\r') Serial.write("<CR>");
+                if (c == '\n') Serial.write("<LF>");
+                // 2nd char must arrive within timeout_ms (500ms)
+                timeout = millis() + timeout_ms;
+            } else {
+                idx = 0;
+                Serial.write('.');
+            }
+        }
     }
-    
+    // now we have eol sequence
 }
 
 void set_eol_mode(char *mode) {
     //
     if (strcmp("cr", mode) == 0)
-        EOL_MODE = eolCR;
+        strcpy(EOL, "\r");
     else if (strcmp("lr", mode) == 0)
-        EOL_MODE = eolLF;
+        strcpy(EOL, "\n");
     else if (strcmp("crlf", mode) == 0)
-        EOL_MODE = eolCRLF;
+        strcpy(EOL, "\r\n");
     else if (strcmp("lfcr", mode) == 0)
-        EOL_MODE = eolCRLF;
+        strcpy(EOL, "\n\r");
+    else if (strcmp("auto", mode) == 0)
+        autodetect_eol();
 }
 
 // true if \r or \n received
@@ -745,31 +740,8 @@ void set_bd_speed(uint32_t speed) {
 }
 
 bool is_eoln(char * buffer, uint8_t idx) {
-    bool eoln = false;
     //
-    switch (EOL_MODE) {
-        case eolCR:
-            eoln = buffer[idx] == '\r';
-            if (eoln)
-                buffer[idx] = '\0';
-            break;
-        case eolLF:
-            eoln = buffer[idx] == '\n';
-            if (eoln)
-                buffer[idx] = '\0';
-            break;
-        case eolCRLF:
-        default:
-            eoln   = (buffer[idx-1] == '\r') && (buffer[idx] == '\n');
-            //eoln ||= (buffer[idx-1] == '\n') && (buffer[idx] == '\r');
-            if (eoln) {
-                buffer[idx] = '\0';
-                buffer[idx-1] = '\0';
-            }
-            break;
-    }
-    //
-    return eoln;
+    return strcmp(buffer+idx - strlen(EOL)+1, EOL);
 }
 
 // block until line from pc is received
