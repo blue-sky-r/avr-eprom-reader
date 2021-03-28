@@ -44,7 +44,7 @@
 // TODO: power-up/down sequence
 // TODO: xmodem protocol
 
-const char version[] PROGMEM = "2021.03.28";
+const char version[] PROGMEM = "2021.03.29";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -124,14 +124,21 @@ const uint8_t V5P  = 19;	//  5V Positive
 const uint8_t V5N  = 20;    //  5V Negative
 const uint8_t V12  = 21;    // 12V positive
 // resitor voltage divider
-// Vpos o-[R1]-+-[R2]-GND
-// Vpos o-[R1]-+-[R2]-o Vneg
+// Vpos o-[R1]--(Va)--[R2]-o Vneg
+//   Vpos = Va * (R1+R2)/R2 + Vneg * R1/R2
+//   Vneg = Va * (R1+R2)/R1 + Vpos * R2/R1
+// simplified voltage divider (Vneg = 0)
+// Vpos o-[R1]--(Va)--[R2]-GND
+//   Vpos = Va * (R1+R2)/R2
 #define Rdivider(r1, r2) (r1 + r2) / float(r2)
-const float V5Pdivider = Rdivider(47, 10);
-const float V5Ndivider = Rdivider(2*47, 2*10);
-const float V12divider = Rdivider(120, 10);
+#define Rratio(r1, r2) (r1) / float(r2)
+// we want nominal voltage aroung 1V on analog input pin (Vref = 1.1 .. 1.2 V)
+const float V5Pdivider = Rdivider(46.2, 9.84);
+const float V5Ndivider = Rdivider(68, 47);
+const float V5Nratio   = Rratio(68, 47);
+const float V12divider = Rdivider(120.1, 9.85);
 // reference voltage (measured on Aref pin)
-const float Vref = 1.1;
+const float Vref = 1.081;
 
 // local echo mode
 enum { echoOFF, echoON, echoDEC, echoHEX } ECHO_MODE = echoON;
@@ -181,6 +188,7 @@ const char volt_5N[]  PROGMEM = "voltage -5V Vbb=-";
 const char volt_12[]  PROGMEM = "voltage 12V Vdd=";
 const char volt_5P[]  PROGMEM = "voltage +5V Vcc=+";
 const char volt_adc[] PROGMEM = "V adc:$";
+const char volt_pin[] PROGMEM = " Vpin=";
 const char volt_div[] PROGMEM = " divider=";
 
 const char isempty_anykey[] PROGMEM = "= loop checking = each . represents 1kB = press ENTER to abort the loop =\n";
@@ -289,25 +297,33 @@ void address_set(uint16_t addr) {
         address_inc();
 }
 
-void tx_voltage(int pin, float divider) {
+float tx_voltage(int pin, float divider, float offset) {
+    // Vpos o-[R1]--(Va)--[R2]-o Vneg
+    //   Vpos = Va * (R1+R2)/R2 + Vneg * R1/R2
+    //   Vneg = Va * (R1+R2)/R1 + Vpos * R2/R1
     uint16_t adc = analogRead(pin);
-    float voltage = adc * Vref * divider / 1024;
+    float pin_voltage = adc * Vref / 1024 + offset;
+    float voltage = pin_voltage * divider;
     Serial.print(voltage, 3);
     tx_pgm_txt(volt_adc);
     tx_hexa_word(adc);
+    tx_pgm_txt(volt_pin);
+    Serial.print(pin_voltage);
     tx_pgm_txt(volt_div);
     Serial.print(divider, 3);
+    //
+    return voltage;
 }
 
 void voltages() {
-    tx_pgm_txt(volt_5N);
-    tx_voltage(V5N, V5Ndivider);
+    tx_pgm_txt(volt_5P);
+    float Pos5V = tx_voltage(V5P, V5Pdivider, 0);
     tx_eol();
     tx_pgm_txt(volt_12);
-    tx_voltage(V12, V12divider);
+    tx_voltage(V12, V12divider, 0);
     tx_eol();
-    tx_pgm_txt(volt_5P);
-    tx_voltage(V5P, V5Pdivider);
+    tx_pgm_txt(volt_5N);
+    tx_voltage(V5N, V5Ndivider, Pos5V * V5Nratio);
     tx_eol();
 }
 
@@ -345,16 +361,17 @@ void tx_hexa_dword(uint32_t data) {
 }
 
 // combine all bits to data byte (hw dependent)
-uint8_t read_data__() {
+uint8_t read_data() {
     uint8_t data = 0;
 
     // /RD active
     digitalWrite(MEM_RD_OE, LOW);
+    delay250ns;
     for(uint8_t bit = 0; bit < 8; bit++) {
-        asm("nop"); asm("nop"); asm("nop"); asm("nop");
+        //asm("nop"); asm("nop"); asm("nop"); asm("nop");
+        data <<= 1;
         if (digitalRead(MEM_DATA_BUS[bit]) == HIGH)
             data |= 1;
-        data <<= 1;
     }
     // RD inactive
     digitalWrite(MEM_RD_OE, HIGH);
@@ -362,7 +379,7 @@ uint8_t read_data__() {
 }
 
 // combine all bits to data byte (hw dependent)
-uint8_t read_data() {
+uint8_t read_data_() {
     uint8_t data = 0;
 
     //delayMicroseconds(1);
