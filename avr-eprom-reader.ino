@@ -44,7 +44,7 @@
 // TODO: power-up/down sequence
 // TODO: xmodem protocol
 
-const char version[] PROGMEM = "2021.03.26";
+const char version[] PROGMEM = "2021.03.28";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -54,46 +54,51 @@ const char usage_02[] PROGMEM = "ver       ... show firmware version \n";
 const char usage_03[] PROGMEM = "eol  char ... set end-of-line char (cr, lf, crlf, lfcr) \n";
 const char usage_04[] PROGMEM = "     cr   ... dos-windows style end-of-line \n";
 const char usage_05[] PROGMEM = "     lf   ... unix-linux-mac style end-of-line \n";
-const char usage_06[] PROGMEM = "     crlf ... cr+lf/lf+cr mode \n";
-const char usage_07[] PROGMEM = "     auto ... autodetection mode (default) \n";
-const char usage_08[] PROGMEM = "echo mode ... set echo mode (off, on, dec, hex) \n";
-const char usage_09[] PROGMEM = "     off  ... do not echo received chars \n";
-const char usage_10[] PROGMEM = "     on   ... echo back each received char (default) \n";
-const char usage_11[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug) \n";
-const char usage_12[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug) \n";
-const char usage_13[] PROGMEM = "bd speed  ... set serial communication speed (default 9600) \n";
-const char usage_14[] PROGMEM = "\n";
-const char usage_15[] PROGMEM = "rst       ... reset address counter (set address to 0) \n";
-const char usage_16[] PROGMEM = "inc       ... increment address counter (next address) \n";
-const char usage_17[] PROGMEM = "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
-const char usage_18[] PROGMEM = "rd        ... read actual address \n";
-const char usage_19[] PROGMEM = "rd++      ... read and increment address \n";
-const char usage_20[] PROGMEM = "addr adr  ... set address counter to adr (next read will start here) \n";
-const char usage_21[] PROGMEM = "addr?     ... show actual address counter \n";
-const char usage_22[] PROGMEM = "dump      ... dump block 16 bytes \n";
-const char usage_23[] PROGMEM = "dump size ... dump block size (16 bytes per line) \n";
-const char usage_24[] PROGMEM = "xmdm size ... read block size and send via xmodem protocol to PC \n";
-const char usage_25[] PROGMEM = "isff size ... check if entire block size is 0xFF (EPROM empty) \n";
-const char usage_26[] PROGMEM = "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
-const char usage_27[] PROGMEM = "is00 size ... check if entire block size is 0x00 (PROM empty) \n";
-const char usage_28[] PROGMEM = "@00  size ... loop checking block size and display percentage of 0x00 cells \n";
-const char usage_29[] PROGMEM = "\n";
-const char usage_30[] PROGMEM = "numbers (size, address, speed) can be entered as: \n";
-const char usage_31[] PROGMEM = "    12345 ... decimal number     (max 65535) \n";
-const char usage_32[] PROGMEM = "    $1234 ... hexadecimal number (max $ffff) \n";
-const char usage_33[] PROGMEM = "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
-const char usage_34[] PROGMEM = "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
-const char usage_35[] PROGMEM = "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
+const char usage_06[] PROGMEM = "     crlf ... max. compatibility mode cr+lf (default) \n";
+const char usage_07[] PROGMEM = "echo mode ... set echo mode (off, on, dec, hex) \n";
+const char usage_08[] PROGMEM = "     off  ... do not echo received chars \n";
+const char usage_09[] PROGMEM = "     on   ... echo back each received char (default) \n";
+const char usage_10[] PROGMEM = "     dec  ... echo decimal code of each received char (for debug) \n";
+const char usage_11[] PROGMEM = "     hex  ... echo hexadec code of each received char (for debug) \n";
+const char usage_12[] PROGMEM = "bd speed  ... set serial communication speed (default 9600) \n";
+const char usage_13[] PROGMEM = "\n";
+const char usage_14[] PROGMEM = "rst       ... reset address counter (set address to 0) \n";
+const char usage_15[] PROGMEM = "inc       ... increment address counter (next address) \n";
+const char usage_16[] PROGMEM = "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
+const char usage_17[] PROGMEM = "rd        ... read actual address \n";
+const char usage_18[] PROGMEM = "rd++      ... read and increment address \n";
+const char usage_19[] PROGMEM = "addr adr  ... set address counter to adr (next read will start here) \n";
+const char usage_20[] PROGMEM = "addr?     ... show actual address counter \n";
+const char usage_21[] PROGMEM = "dump      ... dump block 16 bytes \n";
+const char usage_22[] PROGMEM = "dump size ... dump block size (16 bytes per line) \n";
+const char usage_23[] PROGMEM = "xmdm size ... read block size and send via xmodem protocol to PC \n";
+const char usage_24[] PROGMEM = "isff size ... check if entire block size is 0xFF (EPROM empty) \n";
+const char usage_25[] PROGMEM = "@ff  size ... loop checking block size and display percentage of 0xFF cells \n";
+const char usage_26[] PROGMEM = "is00 size ... check if entire block size is 0x00 (PROM empty) \n";
+const char usage_27[] PROGMEM = "@00  size ... loop checking block size and display percentage of 0x00 cells \n";
+const char usage_28[] PROGMEM = "\n";
+const char usage_29[] PROGMEM = "numbers (size, address, speed) can be entered as: \n";
+const char usage_30[] PROGMEM = "    12345 ... decimal number     (max 65535) \n";
+const char usage_31[] PROGMEM = "    $1234 ... hexadecimal number (max $ffff) \n";
+const char usage_32[] PROGMEM = "    123k  ... decimal number in kilo-bytes (x1024, max  64k) \n";
+const char usage_33[] PROGMEM = "    $12k  ... hexadecimal nr in kilo-bytes (x1024, max $40k) \n";
+const char usage_34[] PROGMEM = "    m64   ... memory chip capacity [kb], for 2764 use m64 (max m512) \n";
 
 const char *const usage[] PROGMEM = {
     usage_00, usage_01, usage_02, usage_03, usage_04, usage_05, usage_06, usage_07, usage_08, usage_09,
     usage_10, usage_11, usage_12, usage_13, usage_14, usage_15, usage_16, usage_17, usage_18, usage_19,
     usage_20, usage_21, usage_22, usage_23, usage_24, usage_25, usage_26, usage_27, usage_28, usage_29,
-    usage_30, usage_31, usage_32, usage_33, usage_34, usage_35 //, usage_36, usage_37, usage_38, usage_39.
+    usage_30, usage_31, usage_32, usage_33, usage_34 //, usage_35, usage_36, usage_37, usage_38, usage_39.
 };
 
 #define RX_BUFF_SIZE  16
 #define TX_BUFF_SIZE 132    // SOH + # + #'1 + 128xDATA + SUM
+
+#define NOP __asm__ __volatile__ ("nop\n\t")
+
+// 16MHz
+#define delay125ns __asm__ __volatile__ ("nop \n\t nop \n\t")
+#define delay250ns __asm__ __volatile__ ("nop \n\t nop \n\t nop \n\t nop \n\t")
 
 // HW
 const uint8_t IC4040_RST =  8;
@@ -119,6 +124,8 @@ const uint8_t V5P  = 19;	//  5V Positive
 const uint8_t V5N  = 20;    //  5V Negative
 const uint8_t V12  = 21;    // 12V positive
 // resitor voltage divider
+// Vpos o-[R1]-+-[R2]-GND
+// Vpos o-[R1]-+-[R2]-o Vneg
 #define Rdivider(r1, r2) (r1 + r2) / float(r2)
 const float V5Pdivider = Rdivider(47, 10);
 const float V5Ndivider = Rdivider(2*47, 2*10);
@@ -129,8 +136,8 @@ const float Vref = 1.1;
 // local echo mode
 enum { echoOFF, echoON, echoDEC, echoHEX } ECHO_MODE = echoON;
 
-// end-of-line string - CR/LF/CRLF/AUTODETECT
-char EOL[2] = ""; // autodetect
+// end-of-line string - CR/LF/CRLF
+char EOL[3] = "\r\n";
 
 // sequencing: -5 -> +5 -> +12
 
@@ -210,9 +217,10 @@ void setup() {
     // 9600 Bd
     Serial.begin(9600);
     Serial.setTimeout(5000);
+    // autodetect looks useless - disabled
     // initiate autodetec EOL if EOL is auto (empty) 
-    if (! strlen(EOL))
-        autodetect_eol();
+    //if (! strlen(EOL))
+    //    autodetect_eol();
     //
     tx_eol();
     prompt();
@@ -227,7 +235,7 @@ void tx_pgm_arr(const char * const *src) {
 }
 
 void cmd_help() {
-    for(uint8_t idx=0; idx<36; idx++)
+    for(uint8_t idx=0; idx<35; idx++)
         tx_pgm_arr(&(usage[idx]));
 }
 
@@ -337,12 +345,13 @@ void tx_hexa_dword(uint32_t data) {
 }
 
 // combine all bits to data byte (hw dependent)
-uint8_t read_data() {
+uint8_t read_data__() {
     uint8_t data = 0;
 
     // /RD active
     digitalWrite(MEM_RD_OE, LOW);
     for(uint8_t bit = 0; bit < 8; bit++) {
+        asm("nop"); asm("nop"); asm("nop"); asm("nop");
         if (digitalRead(MEM_DATA_BUS[bit]) == HIGH)
             data |= 1;
         data <<= 1;
@@ -352,9 +361,31 @@ uint8_t read_data() {
     return data;
 }
 
+// combine all bits to data byte (hw dependent)
+uint8_t read_data() {
+    uint8_t data = 0;
+
+    //delayMicroseconds(1);
+    // 250 ns = 4 * 62.5
+    //asm("nop"); asm("nop"); asm("nop"); asm("nop");
+    // /RD active
+    digitalWrite(MEM_RD_OE, LOW);
+    delay250ns;
+    //delayMicroseconds(1);
+    // 250 ns = 4 * 62.5
+    //asm("nop"); asm("nop"); asm("nop"); asm("nop");
+    // 375 ns = 6 * 62.5
+    //asm("nop"); asm("nop"); asm("nop"); asm("nop"); asm("nop"); asm("nop");
+    // PD7-PD6-PD5-PD4-PD3-PD2-PC1-PC0
+    data = (PIND & 0xFC) | (PINC & 0x03);
+    // RD inactive
+    digitalWrite(MEM_RD_OE, HIGH);
+    return data;
+}
+
 void tx_address() {
     // address
-    Serial.print("$");
+    Serial.write("$");
     tx_hexa_word(cntAddress);
 }
 
@@ -498,6 +529,7 @@ void do_xmodem(uint16_t size) {
     uint8_t code = send_xmodem(size);
     // ttx back status message from error code
     tx_pgm_arr(&(xmodem[code & 0x3]));
+    tx_eol();
 }
 
 bool chip_is_empty(uint16_t size, uint8_t mask) {
@@ -535,7 +567,8 @@ bool chip_is_empty(uint16_t size, uint8_t mask) {
     //cnt_nonempty = size - cnt_empty;
     //cnt_0 = (size << 8) - cnt_1;
     // result
-    tx_address();
+    //tx_address(); // shows addr+1
+    Serial.write('$'); tx_hexa_word(cntAddress-1);
     tx_pgm_txt(isempty_empty);
     Serial.print(percent);
     tx_pgm_txt(isempty_val);  tx_hexa_byte(mask);
@@ -669,6 +702,7 @@ void set_echo_mode(char *mode) {
         ECHO_MODE = echoHEX;
 }
 
+// autodetect looks useless - not used for now
 void autodetect_eol() {
     unsigned long int timeout    = 0;
     unsigned long int timeout_ms = 500;
@@ -676,7 +710,7 @@ void autodetect_eol() {
     //    
     tx_pgm_txt(eol_detect);
     // wait for ENTER
-    while (idx < 2 || (timeout > 0 && millis() > timeout)) {
+    while (idx < 2) {
         if (Serial.available()) {
             char c = (char) Serial.read();
             if (c == '\r' || c == '\n') {
@@ -693,8 +727,10 @@ void autodetect_eol() {
                 Serial.write('.');
             }
         }
+        // 2nd chr timeout - NOTE: this condition cannot be in while / compiler glitch ?!
+        if (timeout > 0 && millis() > timeout) 
+            break;
     }
-    // now we have eol sequence
 }
 
 void set_eol_mode(char *mode) {
@@ -707,8 +743,8 @@ void set_eol_mode(char *mode) {
         strcpy(EOL, "\r\n");
     else if (strcmp("lfcr", mode) == 0)
         strcpy(EOL, "\n\r");
-    else if (strcmp("auto", mode) == 0)
-        autodetect_eol();
+    //else if (strcmp("auto", mode) == 0)
+    //    autodetect_eol();
 }
 
 // true if \r or \n received
@@ -739,13 +775,8 @@ void set_bd_speed(uint32_t speed) {
     }
 }
 
-bool is_eoln(char * buffer, uint8_t idx) {
-    //
-    return strcmp(buffer+idx - strlen(EOL)+1, EOL);
-}
-
 // block until line from pc is received
-char *rx_line_until_eoln() {
+char *rx_line_until_eoln_for_autodetect() {
     uint8_t idx = 0;
     //
     // discard leading white chars
@@ -756,9 +787,44 @@ char *rx_line_until_eoln() {
             int chr = Serial.read();
             // local echo
             tx_echo_char(chr);
+            // received char to buffer
+            RX_BUFFER[idx] = (char) chr;
+            idx++;
+            RX_BUFFER[idx] = '\0';
             // line completed when '\n' or 'r' received
-            if (is_eoln(RX_BUFFER, idx))
+            if (strends(EOL, RX_BUFFER)) {
+                // cut EOL part in buffer
+                RX_BUFFER[idx - strlen(EOL)] = '\0';
                 break;
+            }
+        }
+    }
+    // received string
+    return RX_BUFFER;
+}
+
+char *rx_line_until_eoln() {
+    uint8_t idx = 0;
+    //
+    // discard leading white chars
+    //rx_discard_whitespaces();
+    //
+    while (1) {
+        if (Serial.available() > 0) {
+            int chr = Serial.read();
+            // line completed when '\n' or 'r' received
+            if ((char) chr == '\r' || (char) chr == '\n') {
+                // ignore \r ]n at the beginning of line
+                if (idx == 0)
+                    continue;
+                // local echo of eol
+                tx_eol();
+                // cur \r \n in buffer, leave clean string
+                RX_BUFFER[idx] = '\0';
+                break;
+            }
+            // local echo
+            tx_echo_char(chr);
             // received char to buffer
             RX_BUFFER[idx] = (char) chr;
             idx++;
@@ -768,11 +834,29 @@ char *rx_line_until_eoln() {
     return RX_BUFFER;
 }
 
+// str starts with prefix
 bool strstarts(const char *prefix, const char *str)
 {
     uint8_t lenpre = strlen(prefix),
             lenstr = strlen(str);
     return lenstr < lenpre ? false : memcmp(prefix, str, lenpre) == 0;
+}
+
+// str ends with suffix
+bool strends(const char *suffix, const char *str)
+{
+    uint8_t lensuf = strlen(suffix),
+            lenstr = strlen(str);
+    return lenstr < lensuf ? false : memcmp(suffix, str+lenstr-lensuf, lensuf) == 0;
+}
+
+void tx_str(char * str) {
+    while (*str) {
+        tx_hexa_byte(*str);
+        Serial.write('-');
+        str++;
+    }
+    Serial.write("00 ");
 }
 
 // the loop function runs over and over again forever
