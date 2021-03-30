@@ -44,7 +44,7 @@
 // TODO: power-up/down sequence
 // TODO: xmodem protocol
 
-const char version[] PROGMEM = "2021.03.29";
+const char version[] PROGMEM = "2021.03.30";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -413,7 +413,7 @@ uint8_t do_rd() {
 }
 
 void do_dump(uint16_t size) {
-    uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0;
+    uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
     // loop
     for(uint16_t idx=0; idx<size; idx++) {
         // arrdess each 16 bytes
@@ -573,7 +573,7 @@ bool chip_is_empty(uint16_t size, uint8_t mask) {
         address_inc();
     }
     // calc aux values
-    float percent = 100 * cnt_empty / size;
+    float percent = 100 * float(cnt_empty) / float(size);
     //cnt_nonempty = size - cnt_empty;
     //cnt_0 = (size << 8) - cnt_1;
     // result
@@ -594,11 +594,13 @@ bool chip_is_empty(uint16_t size, uint8_t mask) {
 
 void loop_chip_is_empty(uint16_t size, uint8_t mask) {
     // save current address
-    uint16_t start_addr = cntAddress;
+    uint16_t start_addr = cntAddress, cnt = 0;
     //
     tx_pgm_txt(isempty_anykey);
     // any char will stop loop
     while (! enter_received()) {
+        Serial.print(cnt++);
+        Serial.write(' ');
         chip_is_empty(size, mask);
         address_set(start_addr);
         // small delay
