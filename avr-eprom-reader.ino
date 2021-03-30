@@ -16,7 +16,7 @@
 //                      id +-[ usb ]-+ id
 //     mem_RD  SCK  PB5 13 | [     ] | 12  PB4 MISO   ic4040_clk
 //          x      +3v3    |  -----  | 11 ~PB3 MOSI 
-//      C_ref      Aref    |         | 10 ~PB2 SS     
+//      C_ref      Aref    |         | 10 ~PB2 SS     [pwm+5]
 //     mem_D0   A0  PC0 14 |         | 09 ~PB1        [pwm+12]
 //     mem_D1   A1  PC1 15 |         | 08  PB0        ic4040_rst
 //       on-5   A2  PC2 16 |         | 07  PD7        mem_D7
@@ -126,7 +126,7 @@ const uint8_t V12  = 21;    // 12V positive
 // resitor voltage divider
 // Vpos o-[R1]--(Va)--[R2]-o Vneg
 //   Vpos = Va * (R1+R2)/R2 + Vneg * R1/R2
-//   Vneg = Va * (R1+R2)/R1 + Vpos * R2/R1
+//   Vneg = Va * (R1+R2)/R1 - Vpos * R2/R1
 // simplified voltage divider (Vneg = 0)
 // Vpos o-[R1]--(Va)--[R2]-GND
 //   Vpos = Va * (R1+R2)/R2
@@ -230,8 +230,14 @@ void setup() {
     //if (! strlen(EOL))
     //    autodetect_eol();
     //
-    tx_eol();
+    //tx_eol();
     prompt();
+    // dummy read analog pins (due to doc the first few readings are off)
+    for (uint8_t i=0; i<3; i++) {
+        analogRead(V5P);
+        analogRead(V5N);
+        analogRead(V12);
+    }
 }
 
 // tx string stored in program memory at address
@@ -255,9 +261,6 @@ void tx_pgm_txt(const char *src) {
 }
 
 void adjust_tx_buffer_eol(uint8_t idx) {
-    // buf[idx] = \0
-    //Serial.print(" buf[-1]="); Serial.print(TX_BUFFER[idx-1], HEX);
-    //Serial.print(" buf[idx]="); Serial.println(TX_BUFFER[idx], HEX);
     // nothing to adjust wthout \n
     if (TX_BUFFER[idx-1] != '\n')
         return;
@@ -298,9 +301,6 @@ void address_set(uint16_t addr) {
 }
 
 float tx_voltage(int pin, float divider, float offset) {
-    // Vpos o-[R1]--(Va)--[R2]-o Vneg
-    //   Vpos = Va * (R1+R2)/R2 + Vneg * R1/R2
-    //   Vneg = Va * (R1+R2)/R1 + Vpos * R2/R1
     uint16_t adc = analogRead(pin);
     float pin_voltage = adc * Vref / 1024 + offset;
     float voltage = pin_voltage * divider;
@@ -323,7 +323,7 @@ void voltages() {
     tx_voltage(V12, V12divider, 0);
     tx_eol();
     tx_pgm_txt(volt_5N);
-    tx_voltage(V5N, V5Ndivider, Pos5V * V5Nratio);
+    tx_voltage(V5N, V5Ndivider, -1 * Pos5V * V5Nratio);
     tx_eol();
 }
 
@@ -361,14 +361,14 @@ void tx_hexa_dword(uint32_t data) {
 }
 
 // combine all bits to data byte (hw dependent)
-uint8_t read_data() {
+// can combine any hw connection
+uint8_t read_data_anyhw() {
     uint8_t data = 0;
 
     // /RD active
     digitalWrite(MEM_RD_OE, LOW);
     delay250ns;
     for(uint8_t bit = 0; bit < 8; bit++) {
-        //asm("nop"); asm("nop"); asm("nop"); asm("nop");
         data <<= 1;
         if (digitalRead(MEM_DATA_BUS[bit]) == HIGH)
             data |= 1;
@@ -379,21 +379,14 @@ uint8_t read_data() {
 }
 
 // combine all bits to data byte (hw dependent)
-uint8_t read_data_() {
+// specific hw only
+uint8_t read_data() {
     uint8_t data = 0;
 
-    //delayMicroseconds(1);
-    // 250 ns = 4 * 62.5
-    //asm("nop"); asm("nop"); asm("nop"); asm("nop");
     // /RD active
     digitalWrite(MEM_RD_OE, LOW);
     delay250ns;
-    //delayMicroseconds(1);
-    // 250 ns = 4 * 62.5
-    //asm("nop"); asm("nop"); asm("nop"); asm("nop");
-    // 375 ns = 6 * 62.5
-    //asm("nop"); asm("nop"); asm("nop"); asm("nop"); asm("nop"); asm("nop");
-    // PD7-PD6-PD5-PD4-PD3-PD2-PC1-PC0
+    // combine data
     data = (PIND & 0xFC) | (PINC & 0x03);
     // RD inactive
     digitalWrite(MEM_RD_OE, HIGH);
