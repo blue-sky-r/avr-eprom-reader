@@ -38,13 +38,11 @@
 //
 // connection to PB5 will trigger LED = mem_RD
 
-// TODO: voltage measurements
 // TODO: store measured/real Vref in eeprom
 // TODO: adjust formula for -5V
 // TODO: power-up/down sequence
-// TODO: xmodem protocol
 
-const char version[] PROGMEM = "2021.03.30";
+const char version[] PROGMEM = "2021.03.30 / 375ns";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -99,6 +97,7 @@ const char *const usage[] PROGMEM = {
 // 16MHz
 #define delay125ns __asm__ __volatile__ ("nop \n\t nop \n\t")
 #define delay250ns __asm__ __volatile__ ("nop \n\t nop \n\t nop \n\t nop \n\t")
+#define delay375ns __asm__ __volatile__ ("nop \n\t nop \n\t nop \n\t nop \n\t nop \n\t nop \n\t")
 
 // HW
 const uint8_t IC4040_RST =  8;
@@ -121,8 +120,8 @@ const int MEM_DATA_BUS[8] = {
 // adc pins - A0 .. A7
 // pin
 const uint8_t V5P  = 19;	//  5V Positive
-const uint8_t V5N  = 20;    //  5V Negative
-const uint8_t V12  = 21;    // 12V positive
+const uint8_t V5N  = 21;    //  5V Negative
+const uint8_t V12  = 20;    // 12V positive
 // resitor voltage divider
 // Vpos o-[R1]--(Va)--[R2]-o Vneg
 //   Vpos = Va * (R1+R2)/R2 + Vneg * R1/R2
@@ -134,8 +133,8 @@ const uint8_t V12  = 21;    // 12V positive
 #define Rratio(r1, r2) (r1) / float(r2)
 // we want nominal voltage aroung 1V on analog input pin (Vref = 1.1 .. 1.2 V)
 const float V5Pdivider = Rdivider(46.2, 9.84);
-const float V5Ndivider = Rdivider(68, 47);
-const float V5Nratio   = Rratio(68, 47);
+const float V5Ndivider = Rdivider(70, 45.7);
+const float V5Nratio   = Rratio(70, 45.7);
 const float V12divider = Rdivider(120.1, 9.85);
 // reference voltage (measured on Aref pin)
 const float Vref = 1.081;
@@ -207,7 +206,7 @@ uint16_t cntAddress  = 0;
 
 // global rx/tx buffers
 char RX_BUFFER[RX_BUFF_SIZE] = "";
-char TX_BUFFER[TX_BUFF_SIZE] = "";
+char TX_BUFFER[TX_BUFF_SIZE] = ""; 
 
 // === setup ===
 
@@ -216,9 +215,9 @@ void setup() {
     // initialize digital pin LED_BUILTIN as an output.
     //pinMode(LED_BUILTIN, OUTPUT);
     // pins
+    pinMode(MEM_RD_OE,  OUTPUT); digitalWrite(MEM_RD_OE, HIGH);
     pinMode(IC4040_CLK, OUTPUT); address_inc();
     pinMode(IC4040_RST, OUTPUT); address_0();
-    pinMode(MEM_RD_OE,  OUTPUT); digitalWrite(MEM_RD_OE, HIGH);
     // analog
     analogReference(INTERNAL);  // 1.1-1.2 V
     //analogReference(DEFAULT);   // Vcc=5V
@@ -245,7 +244,7 @@ void tx_pgm_arr(const char * const *src) {
     //
     uint8_t len = strlcpy_P(TX_BUFFER, (char *)pgm_read_word(src), TX_BUFF_SIZE);
     adjust_tx_buffer_eol(len);
-    Serial.print(TX_BUFFER);
+    Serial.write(TX_BUFFER);
 }
 
 void cmd_help() {
@@ -257,7 +256,7 @@ void tx_pgm_txt(const char *src) {
     //
     uint8_t len = strlcpy_P(TX_BUFFER, src, TX_BUFF_SIZE-2);
     adjust_tx_buffer_eol(len);
-    Serial.print(TX_BUFFER);
+    Serial.write(TX_BUFFER);
 }
 
 void adjust_tx_buffer_eol(uint8_t idx) {
@@ -283,15 +282,19 @@ void cmd_ver() {
 }
 
 void address_0() {
-    digitalWrite(IC4040_RST, HIGH);
+    //digitalWrite(IC4040_RST, HIGH);
+    PORTB |= B00000001;                 // PB0 \_
     cntAddress = 0;
-    digitalWrite(IC4040_RST, LOW);
+    PORTB &= B11111110;                 // PB0 _/
+    //digitalWrite(IC4040_RST, LOW);
 }
 
 void address_inc() {
-    digitalWrite(IC4040_CLK, HIGH);
+    //digitalWrite(IC4040_CLK, HIGH); 
+    PORTB |= B00010000;                 // PB4 _/
     cntAddress++;
-    digitalWrite(IC4040_CLK, LOW);
+    PORTB &= B11101111;                 // PB4 \_
+    //digitalWrite(IC4040_CLK, LOW);
 }
 
 void address_set(uint16_t addr) {
@@ -300,7 +303,7 @@ void address_set(uint16_t addr) {
         address_inc();
 }
 
-float tx_voltage(int pin, float divider, float offset) {
+float tx_voltage_single_reading(int pin, float divider, float offset) {
     uint16_t adc = analogRead(pin);
     float pin_voltage = adc * Vref / 1024 + offset;
     float voltage = pin_voltage * divider;
@@ -315,15 +318,39 @@ float tx_voltage(int pin, float divider, float offset) {
     return voltage;
 }
 
+float tx_voltage_avg(int pin, float divider, float offset) {
+    uint16_t adc = 0;
+    float pin_voltage, voltage;
+    //
+    for (uint8_t i=0; i<8; i++) {
+        uint16_t adc0 = analogRead(pin);
+        Serial.write('$');tx_hexa_word(adc0); Serial.write(' ');
+        adc += adc0;
+    }
+    adc >>= 3;
+    pin_voltage = adc * Vref / 1024 + offset;
+    voltage = pin_voltage * divider;
+    //
+    Serial.print(voltage, 3);
+    tx_pgm_txt(volt_adc);
+    tx_hexa_word(adc);
+    tx_pgm_txt(volt_pin);
+    Serial.print(pin_voltage);
+    tx_pgm_txt(volt_div);
+    Serial.print(divider, 3);
+    //
+    return voltage;
+}
+
 void voltages() {
     tx_pgm_txt(volt_5P);
-    float Pos5V = tx_voltage(V5P, V5Pdivider, 0);
+    float Pos5V = tx_voltage_avg(V5P, V5Pdivider, 0);
     tx_eol();
     tx_pgm_txt(volt_12);
-    tx_voltage(V12, V12divider, 0);
+    tx_voltage_avg(V12, V12divider, 0);
     tx_eol();
     tx_pgm_txt(volt_5N);
-    tx_voltage(V5N, V5Ndivider, -1 * Pos5V * V5Nratio);
+    tx_voltage_avg(V5N, V5Ndivider, -1 * Pos5V * V5Nratio);
     tx_eol();
 }
 
@@ -383,13 +410,15 @@ uint8_t read_data_anyhw() {
 uint8_t read_data() {
     uint8_t data = 0;
 
-    // /RD active
-    digitalWrite(MEM_RD_OE, LOW);
-    delay250ns;
+    // /RD active \_
+    //digitalWrite(MEM_RD_OE, LOW);
+    PORTB &= B11011111;                 // PB5 \_
+    delay375ns;
     // combine data
     data = (PIND & 0xFC) | (PINC & 0x03);
-    // RD inactive
-    digitalWrite(MEM_RD_OE, HIGH);
+    // RD inactive _/
+    //digitalWrite(MEM_RD_OE, HIGH);    
+    PORTB |= B00100000;                 // PB5 _/
     return data;
 }
 
@@ -404,6 +433,7 @@ uint8_t do_rd() {
 
     // address
     tx_address();
+    Serial.write(":\t");
     // data
     data = read_data();
     tx_hexa_byte(data);
@@ -421,10 +451,10 @@ void do_dump(uint16_t size) {
             tx_eol();
             tx_address();
             // separator
-            Serial.print(":\t");
+            Serial.write(":\t");
         // add separator each 8 bytes
         } else if (idx % 8 == 0)
-            Serial.print("| ");
+            Serial.write("| ");
         // data
         uint8_t data = read_data();
         tx_hexa_byte(data);
@@ -435,7 +465,7 @@ void do_dump(uint16_t size) {
         sumAnd &= data;
         // next address
         address_inc();
-        Serial.print(" ");
+        Serial.write(" ");
     }
     // checksums
     tx_eol();
@@ -665,17 +695,17 @@ void tx_echo_char(int chr) {
     //
     switch (ECHO_MODE) {
         case echoON:
-            Serial.print((char) chr);
+            Serial.write((char) chr);
             break;
         case echoDEC:
-            Serial.print("[");
+            Serial.write("[");
             Serial.print(chr, DEC);
-            Serial.print("]");
+            Serial.write("]");
             break;
         case echoHEX:
-            Serial.print("[$");
+            Serial.write("[$");
             Serial.print(chr, HEX);
-            Serial.print("]");
+            Serial.write("]");
             break;
         default:
             break;
@@ -782,7 +812,7 @@ void set_bd_speed(uint32_t speed) {
     Serial.begin(speed);
     // echo U until \n or \r receiver
     while (! enter_received()) {
-        Serial.print('U');
+        Serial.write('U');
         delay(1000);
     }
 }
