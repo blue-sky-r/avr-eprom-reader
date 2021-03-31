@@ -42,7 +42,7 @@
 // TODO: adjust formula for -5V
 // TODO: power-up/down sequence
 
-const char version[] PROGMEM = "2021.03.30 / 375ns";
+const char version[] PROGMEM = "2021.03.31 / 375ns";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -62,7 +62,7 @@ const char usage_12[] PROGMEM = "bd speed  ... set serial communication speed (d
 const char usage_13[] PROGMEM = "\n";
 const char usage_14[] PROGMEM = "rst       ... reset address counter (set address to 0) \n";
 const char usage_15[] PROGMEM = "inc       ... increment address counter (next address) \n";
-const char usage_16[] PROGMEM = "v?        ... measure all voltages Vcc=+5V, Vbb=-5V, Vdd=+12V \n";
+const char usage_16[] PROGMEM = "v? [cnt]  ... measure Vcc=+5, Vbb=-5, Vdd=+12 with optional avg.count (default 1) \n";
 const char usage_17[] PROGMEM = "rd        ... read actual address \n";
 const char usage_18[] PROGMEM = "rd++      ... read and increment address \n";
 const char usage_19[] PROGMEM = "addr adr  ... set address counter to adr (next read will start here) \n";
@@ -318,16 +318,15 @@ float tx_voltage_single_reading(int pin, float divider, float offset) {
     return voltage;
 }
 
-float tx_voltage_avg(int pin, float divider, float offset) {
+float tx_voltage_avg(int pin, float divider, float offset, uint8_t avg) {
     uint16_t adc = 0;
     float pin_voltage, voltage;
     //
-    for (uint8_t i=0; i<8; i++) {
+    for (uint8_t i=0; i<avg; i++) {
         uint16_t adc0 = analogRead(pin);
-        Serial.write('$');tx_hexa_word(adc0); Serial.write(' ');
         adc += adc0;
     }
-    adc >>= 3;
+    adc /= avg;
     pin_voltage = adc * Vref / 1024 + offset;
     voltage = pin_voltage * divider;
     //
@@ -342,15 +341,15 @@ float tx_voltage_avg(int pin, float divider, float offset) {
     return voltage;
 }
 
-void voltages() {
+void voltages(uint8_t avg) {
     tx_pgm_txt(volt_5P);
-    float Pos5V = tx_voltage_avg(V5P, V5Pdivider, 0);
+    float Pos5V = tx_voltage_avg(V5P, V5Pdivider, 0, avg);
     tx_eol();
     tx_pgm_txt(volt_12);
-    tx_voltage_avg(V12, V12divider, 0);
+    tx_voltage_avg(V12, V12divider, 0, avg);
     tx_eol();
     tx_pgm_txt(volt_5N);
-    tx_voltage_avg(V5N, V5Ndivider, -1 * Pos5V * V5Nratio);
+    tx_voltage_avg(V5N, V5Ndivider, -1 * Pos5V * V5Nratio, avg);
     tx_eol();
 }
 
@@ -920,10 +919,13 @@ void loop() {
         else if (strcmp("inc", cmd) == 0)
             address_inc();      
         // voltages
-        else if (strcmp("v?", cmd) == 0)
-            voltages();      
+        else if (strstarts("v?", cmd)) {
+            uint8_t avg = parse_hexa(&cmd[3]);
+            // default avg.count is 1
+            if (avg == 0) avg = 1;
+            voltages(avg);      
         // echo mode
-        else if (strstarts("echo", cmd)) {
+        } else if (strstarts("echo", cmd)) {
             char *mode = &cmd[5];
             set_echo_mode(mode);
         // eol mode
