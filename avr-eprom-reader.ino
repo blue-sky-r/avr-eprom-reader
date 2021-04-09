@@ -15,14 +15,14 @@
 //
 //                      id +-[ usb ]-+ id
 //     mem_RD  SCK  PB5 13 | [     ] | 12  PB4 MISO   ic4040_clk
-//          x      +3v3    |  -----  | 11 ~PB3 MOSI 
-//      C_ref      Aref    |         | 10 ~PB2 SS     [pwm+5]
-//     mem_D0   A0  PC0 14 |         | 09 ~PB1        [pwm+12]
+//          x      +3v3    |  -----  | 11 ~PB3 MOSI   [pgm]
+//      C_ref      Aref    |         | 10 ~PB2 SS     [pwm.vcc]
+//     mem_D0   A0  PC0 14 |         | 09 ~PB1        [pwm.vpp]
 //     mem_D1   A1  PC1 15 |         | 08  PB0        ic4040_rst
-//       on-5   A2  PC2 16 |         | 07  PD7        mem_D7
+//      [vpp]   A2  PC2 16 |         | 07  PD7        mem_D7
 //      on+12   A3  PC3 17 |         | 06 ~PD6        mem_D6
 //       on+5   A4  PC4 18 | P P     | 05 ~PD5        mem_D5
-//        +5v   A5  PC5 19 | B w R T | 04  PD4        mem_D4
+//   [vcc]+5v   A5  PC5 19 | B w R T | 04  PD4        mem_D4
 //       +12v   A6 ADC6 20 | 5 r x x | 03 ~PD3        mem_D3
 //        -5v   A7 ADC7 21 | @ @ @ @ | 02  PD2        mem_D2
 //     ic_vcc       +5v    |         |     Gnd        ic_gnd   
@@ -42,7 +42,7 @@
 // TODO: adjust formula for -5V
 // TODO: power-up/down sequence
 
-const char version[] PROGMEM = "2021.03.31 / 375ns";
+const char version[] PROGMEM = "2021.04.05 / 375ns";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -160,7 +160,8 @@ const struct {
 
 const char eol_detect[] PROGMEM = "Press <ENTER> to auto-detect end-of-line [CR/LF/CRLF]: ";
 const char fw[] PROGMEM         = "= firmware revision: ";
-const char prompt_str[] PROGMEM = "reader > ";
+const char prompt_0[] PROGMEM   = "reader [";
+const char prompt_1[] PROGMEM   = "] > ";
 const char pardon[] PROGMEM     = "Pardon ? \n";
 
 const char xmodem_start[] PROGMEM = "activate xmodem to save a file ";
@@ -268,7 +269,9 @@ void adjust_tx_buffer_eol(uint8_t idx) {
 }
 
 void prompt() {
-    tx_pgm_txt(prompt_str);
+    tx_pgm_txt(prompt_0);
+    tx_address();
+    tx_pgm_txt(prompt_1);
 }
 
 void unknown_command() {
