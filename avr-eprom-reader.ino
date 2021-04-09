@@ -448,7 +448,7 @@ uint8_t do_rd() {
 void dump_8bytes(int8_t cnt, char *buf) {
     //
     for(uint8_t i=0; i < 8; i++) {
-        if (i < cnt) {
+        if (i >= cnt) {
             Serial.write("__ ");
             continue;
         }
@@ -462,7 +462,7 @@ void dump_8bytes(int8_t cnt, char *buf) {
 void dump_8ascii(int8_t cnt, char *buf) {
     //
     for(uint8_t i=0; i < 8; i++) {
-        if (i < cnt) {
+        if (i >= cnt) {
             Serial.write('_');
             continue;
         }
@@ -494,11 +494,11 @@ void dump_8b_8b_8a_8a(uint8_t cnt, char *buf) {
 
 void do_dump(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
-    char buf[8] = "";
-    uint8_t buflen;
+    char buf[16] = "";
+    uint8_t bufidx;
     //
     // loop
-    for(uint16_t idx=0; idx<size; idx++) {
+    for(uint16_t idx=0; idx<size; ) {
         // new-line
         tx_eol();
         // counter
@@ -506,9 +506,9 @@ void do_dump(uint16_t size) {
         // separator
         Serial.write(":\t");
         // read max 8 bytes to buff
-        for(buflen=0; buflen<8 && idx<size; buflen++, idx++) {
+        for(bufidx=0; bufidx<16 && idx<size; bufidx++, idx++) {
             uint8_t data = read_data();
-            buf[buflen] = data;
+            buf[bufidx] = data;
             // sums
             sumAdd += data;
             sumXor ^= data;
@@ -518,7 +518,7 @@ void do_dump(uint16_t size) {
             address_inc();
         }
         // 8hexa sep 8hexa sep 8ascii sep 8ascii
-        dump_8b_8b_8a_8a(buflen, buf);
+        dump_8b_8b_8a_8a(bufidx, buf);
     }
     // checksums
     tx_eol();
