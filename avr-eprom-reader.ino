@@ -41,8 +41,9 @@
 // TODO: store measured/real Vref in eeprom
 // TODO: adjust formula for -5V
 // TODO: power-up/down sequence
+// TODO: parametric read delay (now fixed 375ns)
 
-const char version[] PROGMEM = "2021.04.05 / 375ns";
+const char version[] PROGMEM = "2021.04.10 / 375ns";
 
 // NOTE: only \n at the end of the string will be correctly processed (replaced)
 
@@ -177,11 +178,13 @@ const char *const xmodem[] PROGMEM = {
 const char bd_0[] PROGMEM = "= setting communication speed to ";
 const char bd_1[] PROGMEM = " Bd = sending char 'U' till <NL> is received =";
 
-const char bsum_0[]   PROGMEM = "= block checksum";
+const char bsum_len[] PROGMEM = "= block size: ";
+const char bsum_cks[] PROGMEM = " checks";
 const char bsum_add[] PROGMEM = " = add: ";
 const char bsum_xor[] PROGMEM = " = xor: ";
 const char bsum_and[] PROGMEM = " = and: ";
 const char bsum_or[]  PROGMEM = " = or: ";
+const char bsum_crc[] PROGMEM = " = crc-16: ";
 const char eq_eoln[]  PROGMEM = " =\n";
 
 const char volt_5N[]  PROGMEM = "voltage -5V Vbb=-";
@@ -463,7 +466,7 @@ void dump_8ascii(int8_t cnt, char *buf) {
     //
     for(uint8_t i=0; i < 8; i++) {
         if (i >= cnt) {
-            Serial.write('_');
+            Serial.write(' ');
             continue;
         }
         if (*buf < ' ')
@@ -492,13 +495,15 @@ void dump_8b_8b_8a_8a(uint8_t cnt, char *buf) {
     dump_8ascii(cnt-8, buf+8);
 }
 
-void do_dump(uint16_t size) {
+// refactored dump - slower
+void do_dump_new(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
+    uint16_t sumCrc = 0;
     char buf[16] = "";
     uint8_t bufidx;
     //
     // loop
-    for(uint16_t idx=0; idx<size; ) {
+    for (uint16_t idx=0; idx<size; ) {
         // new-line
         tx_eol();
         // counter
@@ -514,6 +519,7 @@ void do_dump(uint16_t size) {
             sumXor ^= data;
             sumOr  |= data;
             sumAnd &= data;
+            sumCrc  = crc16(sumCrc, data);
             // next address
             address_inc();
         }
@@ -522,22 +528,26 @@ void do_dump(uint16_t size) {
     }
     // checksums
     tx_eol();
-    tx_pgm_txt(bsum_0);
+    tx_pgm_txt(bsum_len); tx_hexa_word(size);
+    tx_pgm_txt(bsum_cks);
     tx_pgm_txt(bsum_add); tx_hexa_byte(sumAdd);
     tx_pgm_txt(bsum_xor); tx_hexa_byte(sumXor);
     tx_pgm_txt(bsum_and); tx_hexa_byte(sumAnd);
     tx_pgm_txt(bsum_or);  tx_hexa_byte(sumOr);
+    tx_pgm_txt(bsum_crc); tx_hexa_word(sumCrc);
     tx_pgm_txt(eq_eoln);
 }
 
-void do_dump_old(uint16_t size) {
+// faster
+void do_dump(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
+    uint16_t sumCrc = 0;
     char sep8[] = "  ";  // separator each 8 bytes
     char ascii[18] = "";
     uint8_t ascii_idx = 0;
 
     // loop
-    for(uint16_t idx=0; idx<size; idx++) {
+    for (uint16_t idx=0; idx<size; idx++) {
         // arrdess each 16 bytes
         if (idx % 16 == 0) {
             // ascii representation
@@ -560,13 +570,14 @@ void do_dump_old(uint16_t size) {
         uint8_t data = read_data();
         tx_hexa_byte(data);
         // ascii string
-        ascii[ascii_idx] = (data < ' ') ? '.' : data;
+        ascii[ascii_idx] = (data < ' ' || data > 127) ? '.' : data;
         ascii_idx++;
         // sums
         sumAdd += data;
         sumXor ^= data;
         sumOr  |= data;
         sumAnd &= data;
+        sumCrc  = crc16(sumCrc, data);
         // next address
         address_inc();
         Serial.write(" ");
@@ -577,12 +588,25 @@ void do_dump_old(uint16_t size) {
     Serial.write(ascii);
     // checksums
     tx_eol();
-    tx_pgm_txt(bsum_0);
+    tx_pgm_txt(bsum_len); tx_hexa_word(size);
+    tx_pgm_txt(bsum_cks);
     tx_pgm_txt(bsum_add); tx_hexa_byte(sumAdd);
     tx_pgm_txt(bsum_xor); tx_hexa_byte(sumXor);
     tx_pgm_txt(bsum_and); tx_hexa_byte(sumAnd);
     tx_pgm_txt(bsum_or);  tx_hexa_byte(sumOr);
+    tx_pgm_txt(bsum_crc); tx_hexa_word(sumCrc);
     tx_pgm_txt(eq_eoln);
+}
+
+// crc-16
+// http://srecord.sourceforge.net/crc16-ccitt.html
+// https://www.nongnu.org/avr-libc/user-manual/group__util__crc.html
+uint16_t crc16(uint16_t crc, uint8_t const data) {
+    //
+    crc ^= data;
+    for (uint8_t b = 8; b > 0; b--)
+        crc = crc & 1 ? (crc >> 1) ^ 0xa001 : crc >> 1;
+    return crc;
 }
 
 // <SOH><blk #><255-blk #><--128 data bytes--><cksum>
@@ -596,7 +620,7 @@ void rd_xmdm_block(uint8_t block_num, uint16_t block_size, char *buffer, uint16_
     // 1's complement of num
     *buffer++ = ~block_num;
     // payload
-    for(uint16_t idx=0; idx<block_size; idx++) {
+    for (uint16_t idx=0; idx<block_size; idx++) {
         // optional pad EOT
         uint8_t data = (idx >= padidx) ? control.PAD : read_data();
         *buffer++ = data;
