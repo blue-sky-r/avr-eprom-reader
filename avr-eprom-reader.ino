@@ -446,20 +446,36 @@ uint8_t do_rd() {
 
 void do_dump(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
+    char sep8[] = "  ";  // separator each 8 bytes
+    char ascii[18] = "";
+    uint8_t ascii_idx = 0;
+
     // loop
     for(uint16_t idx=0; idx<size; idx++) {
         // arrdess each 16 bytes
         if (idx % 16 == 0) {
+            // ascii representation
+            Serial.write("\t");
+            Serial.write(ascii);
+            ascii_idx = 0;
+            // new-line
             tx_eol();
+            // counter
             tx_address();
             // separator
             Serial.write(":\t");
         // add separator each 8 bytes
-        } else if (idx % 8 == 0)
-            Serial.write("| ");
+        } else if (idx % 8 == 0) {
+            Serial.write(sep8);
+            ascii[ascii_idx] = ' ';
+            ascii_idx++;
+        }
         // data
         uint8_t data = read_data();
         tx_hexa_byte(data);
+        // ascii string
+        ascii[ascii_idx] = (data < ' ') ? '.' : data;
+        ascii_idx++;
         // sums
         sumAdd += data;
         sumXor ^= data;
@@ -469,6 +485,10 @@ void do_dump(uint16_t size) {
         address_inc();
         Serial.write(" ");
     }
+    // the last line
+    // ascii representation
+    Serial.write("\t");
+    Serial.write(ascii);
     // checksums
     tx_eol();
     tx_pgm_txt(bsum_0);
