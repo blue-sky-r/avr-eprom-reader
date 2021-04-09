@@ -444,7 +444,93 @@ uint8_t do_rd() {
     return data;
 }
 
+// dump cnt of bytes from buf separated by spaces
+void dump_8bytes(int8_t cnt, char *buf) {
+    //
+    for(uint8_t i=0; i < 8; i++) {
+        if (i < cnt) {
+            Serial.write("__ ");
+            continue;
+        }
+        tx_hexa_byte(*buf);
+        buf++;
+        Serial.write(' ');
+    }
+}
+
+// tightly dump cnt of ascii chars from buf
+void dump_8ascii(int8_t cnt, char *buf) {
+    //
+    for(uint8_t i=0; i < 8; i++) {
+        if (i < cnt) {
+            Serial.write('_');
+            continue;
+        }
+        if (*buf < ' ')
+            Serial.write('.');
+        else
+            Serial.write(*buf);
+        buf++;
+    }
+}
+
+// 8bytes space 8bytes tab 8ascii space 8ascii
+void dump_8b_8b_8a_8a(uint8_t cnt, char *buf) {
+    // 8 bytes
+    dump_8bytes(cnt, buf);
+    // separator
+    Serial.write("  ");
+    // 8 bytes
+    dump_8bytes(cnt-8, buf+8);
+    // separator
+    Serial.write('\t');
+    // 8 ascii
+    dump_8ascii(cnt, buf);
+    // separator
+    Serial.write("  ");
+    // 8 ascii
+    dump_8ascii(cnt-8, buf+8);
+}
+
 void do_dump(uint16_t size) {
+    uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
+    char buf[8] = "";
+    uint8_t buflen;
+    //
+    // loop
+    for(uint16_t idx=0; idx<size; idx++) {
+        // new-line
+        tx_eol();
+        // counter
+        tx_address();
+        // separator
+        Serial.write(":\t");
+        // read max 8 bytes to buff
+        for(buflen=0; buflen<8 && idx<size; buflen++, idx++) {
+            uint8_t data = read_data();
+            buf[buflen] = data;
+            // sums
+            sumAdd += data;
+            sumXor ^= data;
+            sumOr  |= data;
+            sumAnd &= data;
+            // next address
+            address_inc();
+        }
+        // 8hexa sep 8hexa sep 8ascii sep 8ascii
+        dump_8b_8b_8a_8a(buflen, buf);
+    }
+    // checksums
+    tx_eol();
+    tx_pgm_txt(bsum_0);
+    tx_pgm_txt(bsum_add); tx_hexa_byte(sumAdd);
+    tx_pgm_txt(bsum_xor); tx_hexa_byte(sumXor);
+    tx_pgm_txt(bsum_and); tx_hexa_byte(sumAnd);
+    tx_pgm_txt(bsum_or);  tx_hexa_byte(sumOr);
+    tx_pgm_txt(eq_eoln);
+}
+
+void do_dump_old(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
     char sep8[] = "  ";  // separator each 8 bytes
     char ascii[18] = "";
