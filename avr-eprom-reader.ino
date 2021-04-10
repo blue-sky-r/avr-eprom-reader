@@ -475,7 +475,7 @@ void dump_8ascii(int8_t cnt, char *buf) {
             Serial.write(' ');
             continue;
         }
-        if (*buf < ' ')
+        if (*buf < ' ' || *buf >= 127)
             Serial.write('.');
         else
             Serial.write(*buf);
@@ -576,7 +576,7 @@ void do_dump_old(uint16_t size) {
         uint8_t data = read_data();
         tx_hexa_byte(data);
         // ascii string
-        ascii[ascii_idx] = (data < ' ' || data > 127) ? '.' : data;
+        ascii[ascii_idx] = (data < ' ' || data >= 127) ? '.' : data;
         ascii_idx++;
         // sums
         sumAdd += data;
