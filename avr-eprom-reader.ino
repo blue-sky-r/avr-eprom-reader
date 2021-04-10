@@ -161,8 +161,9 @@ const struct {
 
 const char eol_detect[] PROGMEM = "Press <ENTER> to auto-detect end-of-line [CR/LF/CRLF]: ";
 const char fw[] PROGMEM         = "= firmware revision: ";
-const char prompt_0[] PROGMEM   = "reader [";
-const char prompt_1[] PROGMEM   = "] > ";
+const char prompt_0[] PROGMEM   = "reader Vcc=";
+const char prompt_1[] PROGMEM   = "V [";
+const char prompt_2[] PROGMEM   = "] > ";
 const char pardon[] PROGMEM     = "Pardon ? \n";
 
 const char xmodem_start[] PROGMEM = "activate xmodem to save a file ";
@@ -273,8 +274,10 @@ void adjust_tx_buffer_eol(uint8_t idx) {
 
 void prompt() {
     tx_pgm_txt(prompt_0);
-    tx_address();
+    tx_voltage_avg(V5P, V5Pdivider, 0, 10, 0);
     tx_pgm_txt(prompt_1);
+    tx_address();
+    tx_pgm_txt(prompt_2);
 }
 
 void unknown_command() {
@@ -309,22 +312,24 @@ void address_set(uint16_t addr) {
         address_inc();
 }
 
-float tx_voltage_single_reading(int pin, float divider, float offset) {
+float tx_voltage_single_reading(int pin, float divider, float offset, bool verbose) {
     uint16_t adc = analogRead(pin);
     float pin_voltage = adc * Vref / 1024 + offset;
     float voltage = pin_voltage * divider;
-    Serial.print(voltage, 3);
-    tx_pgm_txt(volt_adc);
-    tx_hexa_word(adc);
-    tx_pgm_txt(volt_pin);
-    Serial.print(pin_voltage);
-    tx_pgm_txt(volt_div);
-    Serial.print(divider, 3);
     //
+    Serial.print(voltage, 3);
+    if (verbose) {
+        tx_pgm_txt(volt_adc);
+        tx_hexa_word(adc);
+        tx_pgm_txt(volt_pin);
+        Serial.print(pin_voltage);
+        tx_pgm_txt(volt_div);
+        Serial.print(divider, 3);
+    }
     return voltage;
 }
 
-float tx_voltage_avg(int pin, float divider, float offset, uint8_t avg) {
+float tx_voltage_avg(int pin, float divider, float offset, uint8_t avg, bool verbose) {
     uint16_t adc = 0;
     float pin_voltage, voltage;
     //
@@ -337,25 +342,26 @@ float tx_voltage_avg(int pin, float divider, float offset, uint8_t avg) {
     voltage = pin_voltage * divider;
     //
     Serial.print(voltage, 3);
-    tx_pgm_txt(volt_adc);
-    tx_hexa_word(adc);
-    tx_pgm_txt(volt_pin);
-    Serial.print(pin_voltage);
-    tx_pgm_txt(volt_div);
-    Serial.print(divider, 3);
-    //
+    if (verbose) {
+        tx_pgm_txt(volt_adc);
+        tx_hexa_word(adc);
+        tx_pgm_txt(volt_pin);
+        Serial.print(pin_voltage);
+        tx_pgm_txt(volt_div);
+        Serial.print(divider, 3);
+    }
     return voltage;
 }
 
 void voltages(uint8_t avg) {
     tx_pgm_txt(volt_5P);
-    float Pos5V = tx_voltage_avg(V5P, V5Pdivider, 0, avg);
+    float Pos5V = tx_voltage_avg(V5P, V5Pdivider, 0, avg, 1);
     tx_eol();
     tx_pgm_txt(volt_12);
-    tx_voltage_avg(V12, V12divider, 0, avg);
+    tx_voltage_avg(V12, V12divider, 0, avg, 1);
     tx_eol();
     tx_pgm_txt(volt_5N);
-    tx_voltage_avg(V5N, V5Ndivider, -1 * Pos5V * V5Nratio, avg);
+    tx_voltage_avg(V5N, V5Ndivider, -1 * Pos5V * V5Nratio, avg, 1);
     tx_eol();
 }
 
@@ -496,7 +502,7 @@ void dump_8b_8b_8a_8a(uint8_t cnt, char *buf) {
 }
 
 // refactored dump - slower
-void do_dump_new(uint16_t size) {
+void do_dump(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
     uint16_t sumCrc = 0;
     char buf[16] = "";
@@ -539,7 +545,7 @@ void do_dump_new(uint16_t size) {
 }
 
 // faster
-void do_dump(uint16_t size) {
+void do_dump_old(uint16_t size) {
     uint8_t  sumAdd = 0, sumXor = 0, sumOr = 0, sumAnd = 0xff;
     uint16_t sumCrc = 0;
     char sep8[] = "  ";  // separator each 8 bytes
