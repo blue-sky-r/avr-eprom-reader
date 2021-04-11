@@ -164,7 +164,7 @@ const char fw[] PROGMEM         = "= firmware revision: ";
 const char prompt_0[] PROGMEM   = "reader Vcc=";
 const char prompt_1[] PROGMEM   = "V [";
 const char prompt_2[] PROGMEM   = "] > ";
-const char pardon[] PROGMEM     = "Pardon ? \n";
+const char pardon[] PROGMEM     = "Pardon ?\n";
 
 const char xmodem_start[] PROGMEM = "activate xmodem to save a file ";
 const char xmodem_0[] PROGMEM = " OK";
@@ -177,15 +177,15 @@ const char *const xmodem[] PROGMEM = {
 };
 
 const char bd_0[] PROGMEM = "= setting communication speed to ";
-const char bd_1[] PROGMEM = " Bd = sending char 'U' till <NL> is received =";
+const char bd_1[] PROGMEM = " Bd = sending char 'U' till <NL> is received =\n";
 
 const char bsum_len[] PROGMEM = "= block size: ";
-const char bsum_cks[] PROGMEM = " checks";
+const char bsum_cks[] PROGMEM = " checksum";
 const char bsum_add[] PROGMEM = " = add: ";
 const char bsum_xor[] PROGMEM = " = xor: ";
 const char bsum_and[] PROGMEM = " = and: ";
 const char bsum_or[]  PROGMEM = " = or: ";
-const char bsum_crc[] PROGMEM = " = crc-16: ";
+const char bsum_crc[] PROGMEM = " = crc16: ";
 const char eq_eoln[]  PROGMEM = " =\n";
 
 const char volt_5N[]  PROGMEM = "voltage -5V Vbb=-";
@@ -458,7 +458,7 @@ void dump_8bytes(int8_t cnt, char *buf) {
     //
     for(uint8_t i=0; i < 8; i++) {
         if (i >= cnt) {
-            Serial.write("__ ");
+            Serial.write("   ");
             continue;
         }
         tx_hexa_byte(*buf);
@@ -749,8 +749,8 @@ bool chip_is_empty(uint16_t size, uint8_t mask) {
     Serial.write('$'); tx_hexa_word(cntAddress-1);
     tx_pgm_txt(isempty_empty);
     Serial.print(percent);
-    tx_pgm_txt(isempty_val);  tx_hexa_byte(mask);
-    tx_pgm_txt(isempty_nval); tx_hexa_byte(mask);
+    tx_pgm_txt(isempty_val);   tx_hexa_byte(mask);
+    tx_pgm_txt(isempty_nval);  tx_hexa_byte(mask);
     tx_pgm_txt(isempty_cnt_e); tx_hexa_word(cnt_empty);
     tx_pgm_txt(isempty_cntne); tx_hexa_word(cnt_nonempty);
     tx_pgm_txt(isempty_bit1);  tx_hexa_3bytes(cnt_1);
@@ -938,6 +938,7 @@ bool enter_received() {
     return false;
 }
 
+// set new communication speed
 void set_bd_speed(uint32_t speed) {
     //
     tx_eol();
@@ -953,6 +954,8 @@ void set_bd_speed(uint32_t speed) {
         Serial.write('U');
         delay(1000);
     }
+    // ENTER received
+    tx_eol();
 }
 
 // block until line from pc is received
@@ -1076,13 +1079,16 @@ void loop() {
             tx_address();
             tx_eol();
         // set address counter
-        } else if (strstarts("addr", cmd)) {
+        } else if (strstarts("addr ", cmd)) {
             uint16_t addr = parse_hexa(&cmd[5]);
             address_set(addr);
         // set baud rate
-        } else if (strstarts("bd", cmd)) {
+        } else if (strstarts("bd ", cmd)) {
             uint16_t speed = parse_hexa(&cmd[3]);
-            set_bd_speed(speed);
+            if (speed)
+                set_bd_speed(speed);
+            else
+                unknown_command();
         // read
         } else if (strstarts("rd", cmd)) {
             do_rd();
